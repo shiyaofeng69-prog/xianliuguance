@@ -1,0 +1,838 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>限流管理 - Triangle</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div class="layout">
+        <!-- Header -->
+        <header class="header">
+            <div class="header-left">
+                <div class="logo">
+                    <svg width="32" height="32" viewBox="0 0 32 32" fill="none">
+                        <path d="M16 2L4 28h24L16 2z" fill="#1890ff"/>
+                        <path d="M16 8L10 20h12L16 8z" fill="white"/>
+                    </svg>
+                    <span>Triangle</span>
+                </div>
+                <nav class="nav">
+                    <a href="#" class="nav-item active">工作台</a>
+                    <a href="#" class="nav-item">AiTango</a>
+                    <a href="#" class="nav-item">风险治理</a>
+                    <a href="#" class="nav-item">监控发现</a>
+                    <a href="#" class="nav-item">观测定位</a>
+                    <a href="#" class="nav-item">恢复止损</a>
+                    <a href="#" class="nav-item">演练管理</a>
+                    <a href="#" class="nav-item">稳定性度量</a>
+                    <a href="#" class="nav-item">更多</a>
+                </nav>
+            </div>
+            <div class="header-right">
+                <select class="env-select">
+                    <option>ROW</option>
+                </select>
+            </div>
+        </header>
+
+        <div class="main-container">
+            <!-- Sidebar -->
+            <aside class="sidebar">
+                <div class="sidebar-content">
+                    <div class="menu-section">
+                        <div class="menu-group-title">
+                            <span class="menu-group-icon">
+                                <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+                                    <rect x="1.5" y="1.5" width="11" height="11" rx="1" stroke="currentColor" stroke-width="1.2"/>
+                                    <path d="M1.5 5H12.5" stroke="currentColor" stroke-width="1.2"/>
+                                </svg>
+                            </span>
+                            <span class="menu-group-text">限流管理</span>
+                        </div>
+                        <div class="menu-group-items">
+                            <div class="menu-item active" data-page="limiter">
+                                <span class="menu-text">GEC-限流器</span>
+                            </div>
+                            <div class="menu-item" data-page="link-observation">
+                                <span class="menu-text">链路观测</span>
+                            </div>
+                            <div class="menu-item" data-page="limiter-scene">
+                                <span class="menu-text">限流场景</span>
+                            </div>
+                            <div class="menu-item" data-page="settings">
+                                <span class="menu-text">设置管理</span>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="menu-section">
+                        <div class="menu-group-title">
+                            <span class="menu-group-icon">
+                                <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+                                    <circle cx="7" cy="7" r="5.5" stroke="currentColor" stroke-width="1.2"/>
+                                    <path d="M1.5 7H12.5M7 1.5C8.5 3.5 8.5 10.5 7 12.5C5.5 10.5 5.5 3.5 7 1.5Z" stroke="currentColor" stroke-width="1.2"/>
+                                </svg>
+                            </span>
+                            <span class="menu-group-text">域名管理</span>
+                        </div>
+                        <div class="menu-group-items">
+                            <div class="menu-item">
+                                <span class="menu-text">域名资产</span>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="menu-section">
+                        <div class="menu-group-title">
+                            <span class="menu-group-icon">
+                                <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+                                    <rect x="1.5" y="1.5" width="5" height="5" stroke="currentColor" stroke-width="1.2"/>
+                                    <rect x="7.5" y="1.5" width="5" height="5" stroke="currentColor" stroke-width="1.2"/>
+                                    <rect x="1.5" y="7.5" width="5" height="5" stroke="currentColor" stroke-width="1.2"/>
+                                    <rect x="7.5" y="7.5" width="5" height="5" stroke="currentColor" stroke-width="1.2"/>
+                                </svg>
+                            </span>
+                            <span class="menu-group-text">组件管理</span>
+                        </div>
+                        <div class="menu-group-items">
+                            <div class="menu-item">
+                                <span class="menu-text">元信息管理</span>
+                            </div>
+                            <div class="menu-item">
+                                <span class="menu-text">资源管理</span>
+                            </div>
+                            <div class="menu-item">
+                                <span class="menu-text">RDS管理</span>
+                            </div>
+                            <div class="menu-item">
+                                <span class="menu-text">NoSQL 管理</span>
+                            </div>
+                            <div class="menu-item">
+                                <span class="menu-text">数据一致性</span>
+                            </div>
+                            <div class="menu-item">
+                                <span class="menu-text">工单管理</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </aside>
+
+            <!-- Main Content -->
+            <main class="content">
+                <div class="content-inner">
+                    <!-- Page Header -->
+                    <div class="page-header">
+                        <div class="page-header-text">
+                            <h1 class="page-title" id="pageTitle">限流管理</h1>
+                            <p class="page-desc" id="pageDesc"></p>
+                        </div>
+                        <div class="page-header-actions" id="pageHeaderActions">
+                            <button class="btn btn-default lo-config-btn" id="btnHistoryConfig">历史配置</button>
+                            <button class="btn btn-default lo-config-btn" id="btnSaveAsConfig">另存为新配置</button>
+                            <button class="btn btn-success lo-config-btn" id="btnSaveConfig">保存配置</button>
+                        </div>
+                    </div>
+
+                    <!-- Limiter Page -->
+                    <div id="limiterPage" class="page-content">
+                        <!-- Filter Section -->
+                        <div class="filter-card">
+                            <div class="filter-row">
+                                <div class="filter-field">
+                                    <label class="filter-label">PSM</label>
+                                    <select class="form-control">
+                                        <option>Please choose the PSM</option>
+                                    </select>
+                                </div>
+                                <div class="filter-field">
+                                    <label class="filter-label">Redis PSM</label>
+                                    <input type="text" class="form-control" placeholder="请输入redis psm">
+                                </div>
+                                <div class="filter-field">
+                                    <label class="filter-label">限流类型</label>
+                                    <select class="form-control">
+                                        <option></option>
+                                    </select>
+                                </div>
+                                <div class="filter-field">
+                                    <label class="filter-label">操作人</label>
+                                    <input type="text" class="form-control" placeholder="Search by operator">
+                                </div>
+                            </div>
+                            <div class="filter-bottom">
+                                <div class="filter-actions">
+                                    <button class="btn btn-primary">查询</button>
+                                    <button class="btn btn-default">重置</button>
+                                </div>
+                                <div class="filter-add-buttons">
+                                    <button class="btn btn-success">+ 一键接入</button>
+                                    <button class="btn btn-success">+ 添加全局配置</button>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Table -->
+                        <div class="table-card">
+                            <table class="data-table">
+                                <thead>
+                                    <tr>
+                                        <th>PSM</th>
+                                        <th>Redis PSM</th>
+                                        <th>限流类型</th>
+                                        <th>Mesh/Janus接入状态</th>
+                                        <th>操作人</th>
+                                        <th>更新时间</th>
+                                        <th>操作</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="limiterTableBody">
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    <!-- Link Observation Page -->
+                    <div id="linkObservationPage" class="page-content hidden">
+                        <!-- Status Bar -->
+                        <div id="loStatusBar" class="lo-status-bar hidden">
+                            <span class="lo-status-icon">ⓘ</span>
+                            <span class="lo-status-text" id="loStatusText"></span>
+                            <button class="lo-status-close" id="loStatusClose" title="关闭">×</button>
+                        </div>
+                        <!-- Filter Card -->
+                        <div class="lo-filter-card">
+                            <!-- Row 1: 必填基础信息（链路入口 / VDC / 集群 / 时间范围） -->
+                            <div class="lo-filter-row lo-filter-row-grid">
+                                <div class="lo-field-cell">
+                                    <label class="lo-field-label"><span class="lo-required">*</span>链路入口</label>
+                                    <div class="searchable-select" data-field="loEntry">
+                                        <input type="text" class="form-control searchable-input lo-select" id="loEntry" placeholder="请选择链路入口 PSM" autocomplete="off">
+                                        <span class="searchable-arrow">▾</span>
+                                        <div class="searchable-dropdown hidden"></div>
+                                    </div>
+                                </div>
+                                <div class="lo-field-cell">
+                                    <label class="lo-field-label"><span class="lo-required">*</span>VDC</label>
+                                    <div class="searchable-select" data-field="loVDC">
+                                        <input type="text" class="form-control searchable-input lo-select" id="loVDC" placeholder="请选择 VDC" autocomplete="off">
+                                        <span class="searchable-arrow">▾</span>
+                                        <div class="searchable-dropdown hidden"></div>
+                                    </div>
+                                </div>
+                                <div class="lo-field-cell">
+                                    <label class="lo-field-label"><span class="lo-required">*</span>集群</label>
+                                    <div class="searchable-select" data-field="loCluster">
+                                        <input type="text" class="form-control searchable-input lo-select" id="loCluster" placeholder="请选择集群" autocomplete="off">
+                                        <span class="searchable-arrow">▾</span>
+                                        <div class="searchable-dropdown hidden"></div>
+                                    </div>
+                                </div>
+                                <div class="lo-field-cell">
+                                    <label class="lo-field-label"><span class="lo-required">*</span>时间范围</label>
+                                    <div class="searchable-select" data-field="loTimeRange">
+                                        <input type="text" class="form-control searchable-input lo-select" id="loTimeRange" placeholder="请选择时间范围" autocomplete="off" readonly>
+                                        <span class="searchable-arrow">▾</span>
+                                        <div class="searchable-dropdown hidden"></div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Row 2: 拓扑层级（步进输入框，向上/向下，最多 3 层） -->
+                            <div class="lo-filter-row lo-filter-row-inline">
+                                <label class="lo-field-label lo-field-label-inline"><span class="lo-required">*</span>拓扑层级：</label>
+                                <div class="lo-input-suffix">
+                                    <span class="lo-suffix-label">向上</span>
+                                    <input type="number" class="form-control lo-num-input" id="loUpLevel" value="" min="1" max="3" step="1" placeholder="">
+                                    <span class="lo-suffix-text">层</span>
+                                </div>
+                                <div class="lo-input-suffix">
+                                    <span class="lo-suffix-label">向下</span>
+                                    <input type="number" class="form-control lo-num-input" id="loDownLevel" value="" min="1" max="3" step="1" placeholder="">
+                                    <span class="lo-suffix-text">层</span>
+                                </div>
+                            </div>
+
+                            <!-- Row 3: 服务筛选（非必填，联想搜索下拉） -->
+                            <div class="lo-filter-row lo-filter-row-grid">
+                                <div class="lo-field-cell">
+                                    <label class="lo-field-label">强弱依赖<span class="lo-optional">（可选）</span></label>
+                                    <div class="searchable-select" data-field="loDepType">
+                                        <input type="text" class="form-control searchable-input lo-select" id="loDepType" placeholder="请选择强弱依赖" autocomplete="off">
+                                        <span class="searchable-arrow">▾</span>
+                                        <div class="searchable-dropdown hidden"></div>
+                                    </div>
+                                </div>
+                                <div class="lo-field-cell">
+                                    <label class="lo-field-label">服务优先级<span class="lo-optional">（可选）</span></label>
+                                    <div class="searchable-select" data-field="loPriority">
+                                        <input type="text" class="form-control searchable-input lo-select" id="loPriority" placeholder="请选择服务优先级" autocomplete="off">
+                                        <span class="searchable-arrow">▾</span>
+                                        <div class="searchable-dropdown hidden"></div>
+                                    </div>
+                                </div>
+                                <div class="lo-field-cell">
+                                    <label class="lo-field-label">服务类型<span class="lo-optional">（可选）</span></label>
+                                    <div class="searchable-select" data-field="loSvcType">
+                                        <input type="text" class="form-control searchable-input lo-select" id="loSvcType" placeholder="请选择服务类型" autocomplete="off">
+                                        <span class="searchable-arrow">▾</span>
+                                        <div class="searchable-dropdown hidden"></div>
+                                    </div>
+                                </div>
+                                <div class="lo-field-cell"></div>
+                            </div>
+
+                            <!-- Row 4: 观测粒度（手动勾选） + 操作 -->
+                            <div class="lo-filter-row lo-filter-row-bottom">
+                                <div class="lo-bottom-left">
+                                    <label class="lo-field-label lo-field-label-inline"><span class="lo-required">*</span>观测粒度：</label>
+                                    <label class="lo-check"><input type="checkbox" name="loGran" value="psm"> psm</label>
+                                    <label class="lo-check"><input type="checkbox" name="loGran" value="interface"> 接口</label>
+                                    <label class="lo-check"><input type="checkbox" name="loGran" value="idc"> 机房</label>
+                                    <label class="lo-check"><input type="checkbox" name="loGran" value="cluster"> 集群</label>
+                                    <span class="lo-tip-text">用于配置链路结果展示的粒度</span>
+                                </div>
+                                <div class="lo-row-actions">
+                                    <span class="lo-btn-with-dot">
+                                        <button class="btn btn-success" id="loGenerateBtn">生成结果</button>
+                                        <span class="lo-btn-reddot hidden" id="loGenerateDot"></span>
+                                    </span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Result Card -->
+                        <div class="lo-result-card">
+                            <div class="lo-result-header lo-result-header-simple">
+                                <h3 class="lo-result-title-text">链路查询结果</h3>
+                                <div class="lo-view-tabs">
+                                    <button class="lo-view-tab active" id="loTabTopology">拓扑视图</button>
+                                    <button class="lo-view-tab" id="loTabList">列表视图</button>
+                                </div>
+                            </div>
+
+                            <!-- Topology View -->
+                            <div class="lo-canvas" id="loCanvas">
+                                <div class="lo-topo-filter">
+                                    <div class="lo-topo-filter-item">
+                                        <span class="lo-topo-filter-label">QPS</span>
+                                        <span class="lo-topo-filter-op-static">≥</span>
+                                        <input type="text" class="form-control small lo-topo-filter-input" placeholder="请输入数值" id="loTopoQpsVal">
+                                    </div>
+                                    <div class="lo-topo-filter-item">
+                                        <span class="lo-topo-filter-label">CPU 利用率</span>
+                                        <span class="lo-topo-filter-op-static">≥</span>
+                                        <input type="text" class="form-control small lo-topo-filter-input" placeholder="请输入数值" id="loTopoCpuVal">
+                                        <span class="lo-topo-filter-suffix">%</span>
+                                    </div>
+                                    <button class="btn btn-default small lo-topo-filter-reset" id="loTopoFilterReset" title="重置">↻</button>
+                                    <button class="btn btn-success small" id="loTopoFilterSearch">搜索</button>
+                                </div>
+                                <div class="lo-canvas-legend">
+                                    <span class="lo-legend-item"><span class="lo-legend-dot lo-dot-normal"></span>正常</span>
+                                    <span class="lo-legend-item"><span class="lo-legend-dot lo-dot-error"></span>限流/异常</span>
+                                    <span class="lo-legend-item"><span class="lo-legend-dot lo-dot-warn"></span>预警</span>
+                                </div>
+                                <div class="lo-canvas-tools">
+                                    <button class="lo-canvas-btn" id="loCanvasLocate" title="节点定位" data-tip="节点定位">
+                                        <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 21s-7-7.5-7-12a7 7 0 1 1 14 0c0 4.5-7 12-7 12z"/><circle cx="12" cy="9" r="2.5"/></svg>
+                                    </button>
+                                    <button class="lo-canvas-btn" id="loCanvasExport" title="导出图片" data-tip="导出图片">
+                                        <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="16" rx="2"/><circle cx="9" cy="10" r="1.6"/><path d="M3 17l5-5 4 4 3-3 6 6"/></svg>
+                                    </button>
+                                    <button class="lo-canvas-btn" id="loCanvasZoomIn" title="放大" data-tip="放大">
+                                        <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 8v8M8 12h8"/></svg>
+                                    </button>
+                                    <button class="lo-canvas-btn" id="loCanvasZoomOut" title="缩小" data-tip="缩小">
+                                        <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M8 12h8"/></svg>
+                                    </button>
+                                    <button class="lo-canvas-btn" id="loCanvasFullscreen" title="全局放大" data-tip="全局放大">
+                                        <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 9V5a1 1 0 0 1 1-1h4M20 9V5a1 1 0 0 0-1-1h-4M4 15v4a1 1 0 0 0 1 1h4M20 15v4a1 1 0 0 1-1 1h-4"/></svg>
+                                    </button>
+                                </div>
+                                <!-- 节点定位搜索框 -->
+                                <div class="lo-locate-panel hidden" id="loLocatePanel">
+                                    <div class="lo-locate-input-wrap">
+                                        <input type="text" id="loLocateInput" class="lo-locate-input" placeholder="e.g. psm::method::dc::cluster" autocomplete="off">
+                                        <span class="lo-locate-search-icon">⌕</span>
+                                    </div>
+                                    <div class="lo-locate-dropdown" id="loLocateDropdown"></div>
+                                </div>
+                                <svg class="lo-topology-svg" id="loTopologySvg" width="100%" height="460"></svg>
+                            </div>
+
+                            <!-- List View -->
+                            <div class="lo-list-view hidden" id="loListView">
+                                <div class="lo-list-filter">
+                                    <input type="text" class="form-control small lo-list-input" placeholder="调用方服务 请输入" id="loListCallerSvc">
+                                    <input type="text" class="form-control small lo-list-input" placeholder="调用方集群 请输入" id="loListCallerCluster">
+                                    <input type="text" class="form-control small lo-list-input" placeholder="被调用方服务 请输入" id="loListCalleeSvc">
+                                    <input type="text" class="form-control small lo-list-input" placeholder="被调用方集群 请输入" id="loListCalleeCluster">
+                                    <input type="text" class="form-control small lo-list-input" placeholder="被调用方方法 请输入" id="loListCalleeMethod">
+                                    <button class="btn btn-default small lo-list-reset" id="loListReset" title="重置">↻</button>
+                                    <button class="btn btn-success small" id="loListSearchBtn">搜索</button>
+                                    <div class="lo-list-export-wrap">
+                                        <button class="btn btn-default small lo-list-export-btn" id="loListExportBtn">导出 ▾</button>
+                                        <div class="lo-list-export-menu hidden" id="loListExportMenu">
+                                            <div class="lo-list-export-item" data-type="feishu">导出为飞书表格</div>
+                                            <div class="lo-list-export-item" data-type="excel">导出为 Excel 表格</div>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="table-card">
+                                    <table class="data-table lo-list-table">
+                                        <thead>
+                                            <tr>
+                                                <th>调用方服务</th>
+                                                <th>调用方集群</th>
+                                                <th>被调用方服务</th>
+                                                <th>被调用方集群</th>
+                                                <th>被调用方方法</th>
+                                                <th>限流值</th>
+                                                <th>限流类型</th>
+                                                <th>限流模式</th>
+                                                <th>流量 Max</th>
+                                                <th>流量 Avg</th>
+                                                <th>流量 P99</th>
+                                                <th>CPU 利用率</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody id="loListTableBody"></tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Detail Page -->
+                    <div id="detailPage" class="page-content hidden">
+                        <!-- Back Button -->
+                        <div class="detail-header">
+                            <button class="btn btn-default" id="btnBack">← 返回</button>
+                            <h1 class="detail-title" id="detailTitle"></h1>
+                        </div>
+
+                        <!-- Info Card -->
+                        <div class="info-card">
+                            <div class="info-row">
+                                <div class="info-item">
+                                    <span class="info-label">目标PSM</span>
+                                    <span class="info-value" id="infoPsm"></span>
+                                </div>
+                                <div class="info-item">
+                                    <span class="info-label">时间范围</span>
+                                    <span class="info-value" id="infoTimeRange"></span>
+                                </div>
+                                <div class="info-item">
+                                    <span class="info-label">上游层级</span>
+                                    <span class="info-value" id="infoUpstream"></span>
+                                </div>
+                                <div class="info-item">
+                                    <span class="info-label">下游层级</span>
+                                    <span class="info-value" id="infoDownstream"></span>
+                                </div>
+                            </div>
+                            <div class="info-row">
+                                <div class="info-item">
+                                    <span class="info-label">VRegion</span>
+                                    <span class="info-value" id="infoRegion"></span>
+                                </div>
+                                <div class="info-item">
+                                    <span class="info-label">VDC</span>
+                                    <span class="info-value" id="infoVdc"></span>
+                                </div>
+                                <div class="info-item">
+                                    <span class="info-label">创建人</span>
+                                    <span class="info-value" id="infoCreator"></span>
+                                </div>
+                                <div class="info-item">
+                                    <span class="info-label">更新时间</span>
+                                    <span class="info-value" id="infoUpdateTime"></span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- View Tabs -->
+                        <div class="view-tabs">
+                            <button class="tab-btn active" id="tabTopology">拓扑视图</button>
+                            <button class="tab-btn" id="tabList">列表视图</button>
+                        </div>
+
+                        <!-- Topology View -->
+                        <div id="topologyView" class="view-content">
+                            <!-- Summary Bar -->
+                            <div class="summary-bar">
+                                <div class="summary-item">
+                                    <span class="summary-label">观测节点</span>
+                                    <span class="summary-value" id="summaryNodes"></span>
+                                </div>
+                                <div class="summary-item">
+                                    <span class="summary-label">异常节点</span>
+                                    <span class="summary-value warning" id="summaryAbnormal"></span>
+                                </div>
+                                <div class="summary-item">
+                                    <span class="summary-label">异常调用</span>
+                                    <span class="summary-value warning" id="summaryCalls"></span>
+                                </div>
+                                <div class="summary-item">
+                                    <span class="summary-label">最近异常</span>
+                                    <span class="summary-value" id="summaryLastTime"></span>
+                                </div>
+                                <div class="summary-item">
+                                    <span class="summary-label">主要异常</span>
+                                    <span class="summary-value" id="summaryTypes"></span>
+                                </div>
+                            </div>
+
+                            <!-- Toolbar -->
+                            <div class="toolbar">
+                                <button class="toolbar-btn" id="btnZoomIn">放大</button>
+                                <button class="toolbar-btn" id="btnZoomOut">缩小</button>
+                                <button class="toolbar-btn" id="btnResetView">重置视图</button>
+                                <button class="toolbar-btn" id="btnLocate">定位目标节点</button>
+                                <button class="toolbar-btn" id="btnExport">导出图片</button>
+                            </div>
+
+                            <!-- Topology Graph -->
+                            <div class="topology-container" id="topologyContainer">
+                                <div class="topology-legend">
+                                    <div class="legend-item"><span class="legend-dot normal"></span><span>正常</span></div>
+                                    <div class="legend-item"><span class="legend-dot warning"></span><span>告警</span></div>
+                                    <div class="legend-item"><span class="legend-dot error"></span><span>异常</span></div>
+                                    <div class="legend-item"><span class="legend-dot gray"></span><span>无数据</span></div>
+                                </div>
+                                <svg class="topology-svg" id="topologySvg" width="100%" height="500"></svg>
+                            </div>
+                        </div>
+
+                        <!-- List View -->
+                        <div id="listView" class="view-content hidden">
+                            <div class="list-filter">
+                                <input type="text" class="form-control small" placeholder="搜索服务" id="listSearch">
+                                <select class="form-control small" id="listStatus">
+                                    <option>全部状态</option>
+                                    <option>正常</option>
+                                    <option>告警</option>
+                                    <option>异常</option>
+                                </select>
+                                <button class="btn btn-default small" id="btnListExport">导出</button>
+                            </div>
+                            <div class="table-card">
+                                <table class="data-table">
+                                    <thead>
+                                        <tr>
+                                            <th>PSM名称</th>
+                                            <th>节点角色</th>
+                                            <th>层级</th>
+                                            <th>区域</th>
+                                            <th>当前QPS</th>
+                                            <th>峰值QPS</th>
+                                            <th>服务成功率</th>
+                                            <th>CPU利用率</th>
+                                            <th>限流状态</th>
+                                            <th>异常状态</th>
+                                            <th>最近异常时间</th>
+                                            <th>操作</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="detailTableBody">
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Footer -->
+                <footer class="footer">
+                    <p>Copyright © GEC-稳定性 保留所有权利</p>
+                </footer>
+            </main>
+        </div>
+    </div>
+
+    <!-- Drawer: Create/Edit Link -->
+    <div id="linkModal" class="drawer hidden">
+        <div class="drawer-mask"></div>
+        <div class="drawer-content link-form-drawer">
+            <div class="drawer-header">
+                <div>
+                    <h2 class="drawer-title" id="modalTitle">新建任务</h2>
+                    <p class="drawer-desc">新创建的任务需要 3~5 分钟同步数据，请稍作等待</p>
+                </div>
+                <button class="drawer-close" id="modalClose">×</button>
+            </div>
+            <div class="drawer-body">
+                <div class="form-block">
+                    <label class="form-label"><span class="required">*</span> 任务名称</label>
+                    <input type="text" class="form-control" id="formName" placeholder="请输入任务名称">
+                </div>
+                <div class="form-block">
+                    <label class="form-label">链路入口</label>
+                    <div class="form-row-3">
+                        <div class="form-item">
+                            <label class="sub-label"><span class="required">*</span> 服务</label>
+                            <div class="searchable-select" data-field="formPsm">
+                                <input type="text" class="form-control searchable-input" id="formPsm" placeholder="请选择服务" autocomplete="off">
+                                <span class="searchable-arrow">▾</span>
+                                <div class="searchable-dropdown hidden"></div>
+                            </div>
+                        </div>
+                        <div class="form-item">
+                            <label class="sub-label"><span class="required">*</span> 方法</label>
+                            <div class="searchable-select" data-field="formMethod">
+                                <input type="text" class="form-control searchable-input" id="formMethod" placeholder="请选择方法" autocomplete="off">
+                                <span class="searchable-arrow">▾</span>
+                                <div class="searchable-dropdown hidden"></div>
+                            </div>
+                        </div>
+                        <div class="form-item">
+                            <label class="sub-label"><span class="required">*</span> 集群</label>
+                            <div class="searchable-select" data-field="formCluster">
+                                <input type="text" class="form-control searchable-input" id="formCluster" placeholder="请选择集群" autocomplete="off">
+                                <span class="searchable-arrow">▾</span>
+                                <div class="searchable-dropdown hidden"></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="form-block">
+                    <div class="form-row-3">
+                        <div class="form-item">
+                            <label class="sub-label">VRegion</label>
+                            <div class="searchable-select" data-field="formVRegion">
+                                <input type="text" class="form-control searchable-input" id="formVRegion" placeholder="请选择VRegion" autocomplete="off">
+                                <span class="searchable-arrow">▾</span>
+                                <div class="searchable-dropdown hidden"></div>
+                            </div>
+                        </div>
+                        <div class="form-item">
+                            <label class="sub-label">VDC</label>
+                            <div class="searchable-select" data-field="formVDC">
+                                <input type="text" class="form-control searchable-input" id="formVDC" placeholder="请选择VDC" autocomplete="off">
+                                <span class="searchable-arrow">▾</span>
+                                <div class="searchable-dropdown hidden"></div>
+                            </div>
+                        </div>
+                        <div class="form-item form-item-empty"></div>
+                    </div>
+                </div>
+                <div class="form-block">
+                    <div class="form-row-3">
+                        <div class="form-item">
+                            <label class="sub-label"><span class="required">*</span> 时间范围</label>
+                            <select class="form-control" id="formTimeRange">
+                                <option value="">请选择时间范围</option>
+                                <option>近 7 天</option>
+                                <option>近 3 天</option>
+                                <option>近 24h</option>
+                                <option>近 12h</option>
+                                <option>近 6h</option>
+                                <option>近 3h</option>
+                                <option>近 1h</option>
+                                <option>近 30mins</option>
+                                <option>近 15mins</option>
+                                <option>近 5mins</option>
+                            </select>
+                        </div>
+                        <div class="form-item form-item-empty"></div>
+                        <div class="form-item form-item-empty"></div>
+                    </div>
+                </div>
+                <div class="form-block">
+                    <div class="form-row-3">
+                        <div class="form-item">
+                            <label class="sub-label">向上拓扑层级</label>
+                            <select class="form-control" id="formUpstream">
+                                <option value="1">1</option>
+                                <option value="2">2</option>
+                                <option value="3">3</option>
+                            </select>
+                        </div>
+                        <div class="form-item form-item-empty"></div>
+                        <div class="form-item form-item-empty"></div>
+                    </div>
+                </div>
+                <div class="form-block">
+                    <div class="form-row-3">
+                        <div class="form-item">
+                            <label class="sub-label">向下拓扑层级</label>
+                            <select class="form-control" id="formDownstream">
+                                <option value="1">1</option>
+                                <option value="2" selected>2</option>
+                                <option value="3">3</option>
+                            </select>
+                        </div>
+                        <div class="form-item form-item-empty"></div>
+                        <div class="form-item form-item-empty"></div>
+                    </div>
+                </div>
+                <div class="form-block">
+                    <label class="form-label">标签</label>
+                    <div class="tags-input-area" id="tagsInputArea">
+                        <div class="tag-rows" id="tagRows"></div>
+                        <button type="button" class="btn-add-tag-row" id="btnAddTag">新增标签</button>
+                    </div>
+                </div>
+            </div>
+            <div class="drawer-footer">
+                <button class="btn btn-default" id="btnModalCancel">取消</button>
+                <button class="btn btn-primary" id="btnModalConfirm">确定</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Drawer: Node Detail -->
+    <div id="nodeDrawer" class="drawer hidden">
+        <div class="drawer-mask"></div>
+        <div class="drawer-content">
+            <div class="drawer-header">
+                <h2 class="drawer-title" id="drawerTitle">节点详情</h2>
+                <button class="drawer-close" id="drawerClose">×</button>
+            </div>
+            <div class="drawer-body">
+                <div class="drawer-section">
+                    <h3 class="section-title">基本信息</h3>
+                    <div class="detail-grid">
+                        <div class="detail-item"><span class="detail-label">PSM名称</span><span class="detail-value" id="nodePsm"></span></div>
+                        <div class="detail-item"><span class="detail-label">区域</span><span class="detail-value" id="nodeRegion"></span></div>
+                        <div class="detail-item"><span class="detail-label">机房</span><span class="detail-value" id="nodeVdc"></span></div>
+                        <div class="detail-item"><span class="detail-label">集群</span><span class="detail-value" id="nodeCluster"></span></div>
+                        <div class="detail-item"><span class="detail-label">节点角色</span><span class="detail-value" id="nodeRole"></span></div>
+                        <div class="detail-item"><span class="detail-label">层级</span><span class="detail-value" id="nodeLevel"></span></div>
+                    </div>
+                </div>
+                <div class="drawer-section">
+                    <h3 class="section-title">当前运行数据</h3>
+                    <div class="detail-grid">
+                        <div class="detail-item"><span class="detail-label">当前QPS</span><span class="detail-value" id="nodeQps"></span></div>
+                        <div class="detail-item"><span class="detail-label">CPU利用率</span><span class="detail-value" id="nodeCpu"></span></div>
+                        <div class="detail-item"><span class="detail-label">成功率</span><span class="detail-value" id="nodeSuccessRate"></span></div>
+                        <div class="detail-item"><span class="detail-label">错误率</span><span class="detail-value" id="nodeErrorRate"></span></div>
+                    </div>
+                </div>
+                <div class="drawer-section">
+                    <h3 class="section-title">基线数据</h3>
+                    <div class="detail-grid">
+                        <div class="detail-item"><span class="detail-label">峰值</span><span class="detail-value" id="nodePeak"></span></div>
+                        <div class="detail-item"><span class="detail-label">P99</span><span class="detail-value" id="nodeP99"></span></div>
+                        <div class="detail-item"><span class="detail-label">均值</span><span class="detail-value" id="nodeAvg"></span></div>
+                        <div class="detail-item"><span class="detail-label">阈值水位</span><span class="detail-value" id="nodeThreshold"></span></div>
+                    </div>
+                </div>
+                <div class="drawer-section" id="abnormalSection" style="display:none">
+                    <h3 class="section-title">异常与限流信息</h3>
+                    <div class="abnormal-list" id="abnormalList"></div>
+                    <div class="detail-grid">
+                        <div class="detail-item"><span class="detail-label">限流前流量</span><span class="detail-value" id="nodeBeforeLimit"></span></div>
+                        <div class="detail-item"><span class="detail-label">限流后流量</span><span class="detail-value" id="nodeAfterLimit"></span></div>
+                        <div class="detail-item"><span class="detail-label">裁剪比例</span><span class="detail-value" id="nodeCutRatio"></span></div>
+                        <div class="detail-item"><span class="detail-label">优先级策略</span><span class="detail-value" id="nodePriority"></span></div>
+                    </div>
+                </div>
+            </div>
+            <div class="drawer-footer">
+                <button class="btn btn-default" id="btnDrawerClose">关闭</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Confirm Modal -->
+    <div id="confirmModal" class="modal hidden">
+        <div class="modal-mask" id="confirmModalMask"></div>
+        <div class="modal-content small">
+            <div class="modal-header">
+                <h2 class="modal-title">确认删除</h2>
+                <button class="modal-close" id="confirmModalClose">×</button>
+            </div>
+            <div class="modal-body">
+                <p id="confirmModalMessage">确定要删除该观测任务吗？此操作无法撤销。</p>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-default" id="btnConfirmCancel">取消</button>
+                <button class="btn btn-danger" id="btnConfirmOk">确认删除</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- History Config Confirm Modal -->
+    <div id="hcConfirmModal" class="modal hc-confirm-modal hidden">
+        <div class="modal-mask" id="hcConfirmModalMask"></div>
+        <div class="modal-content small">
+            <div class="modal-header">
+                <h2 class="modal-title" id="hcConfirmTitle">确认删除该历史配置？</h2>
+                <button class="modal-close" id="hcConfirmClose">×</button>
+            </div>
+            <div class="modal-body">
+                <p id="hcConfirmMessage">删除后不可恢复，请确认是否继续删除。</p>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-default" id="btnHcConfirmCancel">取消</button>
+                <button class="btn btn-success" id="btnHcConfirmOk">确认删除</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- History Config Drawer -->
+    <div id="historyConfigDrawer" class="drawer hidden">
+        <div class="drawer-mask" id="historyConfigMask"></div>
+        <div class="drawer-content history-config-drawer">
+            <div class="drawer-header hc-drawer-header">
+                <h2 class="drawer-title">历史配置</h2>
+                <div class="hc-header-actions">
+                    <button class="btn btn-success btn-sm" id="btnImportConfig">导入配置</button>
+                    <button class="btn btn-default btn-sm" id="btnBulkOp">批量操作</button>
+                    <button class="drawer-close" id="historyConfigClose">×</button>
+                </div>
+            </div>
+            <!-- 批量操作工具条（默认隐藏） -->
+            <div class="hc-bulk-bar hidden" id="hcBulkBar">
+                <label class="hc-check-label">
+                    <input type="checkbox" id="hcSelectAll"><span>全选</span>
+                </label>
+                <span class="hc-selected-count">已选 <span id="hcSelectedCount">0</span> 项</span>
+                <div class="hc-bulk-bar-right">
+                    <button class="btn btn-danger btn-sm" id="hcBulkDelete">批量删除</button>
+                    <button class="btn btn-success btn-sm" id="hcBulkExport">批量导出</button>
+                    <button class="btn btn-default btn-sm" id="hcBulkCancel">退出批量</button>
+                </div>
+            </div>
+            <div class="drawer-body">
+                <div class="hc-list" id="historyConfigList">
+                    <!-- Config items rendered by JS -->
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Link Observation Node Detail Drawer -->
+    <div id="loNodeDrawer" class="drawer hidden">
+        <div class="drawer-mask" id="loNodeDrawerMask"></div>
+        <div class="drawer-content lo-node-drawer">
+            <div class="drawer-header">
+                <h2 class="drawer-title" id="loNodeDrawerTitle">节点详情</h2>
+                <button class="drawer-close" id="loNodeDrawerClose">×</button>
+            </div>
+            <div class="drawer-body" id="loNodeDrawerBody">
+                <!-- 节点详情内容由 JS 渲染 -->
+            </div>
+        </div>
+    </div>
+
+    <!-- Link Observation Edge Detail Drawer -->
+    <div id="loEdgeDrawer" class="drawer hidden">
+        <div class="drawer-mask" id="loEdgeDrawerMask"></div>
+        <div class="drawer-content lo-edge-drawer">
+            <div class="drawer-header">
+                <h2 class="drawer-title">调用信息</h2>
+                <button class="drawer-close" id="loEdgeDrawerClose">×</button>
+            </div>
+            <div class="drawer-body" id="loEdgeDrawerBody">
+                <!-- 边详情内容由 JS 渲染 -->
+            </div>
+        </div>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+</html>

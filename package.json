@@ -1,0 +1,13 @@
+{
+  "name": "xianliuguance",
+  "version": "1.0.0",
+  "description": "限流管理系统",
+  "main": "index.html",
+  "scripts": {
+    "dev": "python3 -m http.server 8000",
+    "start": "python3 -m http.server 8000"
+  },
+  "keywords": ["限流", "管理系统"],
+  "author": "",
+  "license": "ISC"
+}
