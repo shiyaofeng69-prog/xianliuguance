@@ -793,6 +793,7 @@ function initSearchableSelects() {
         ],
         loVDC: () => ['maliva', 'useast', 'boe', 'lf', 'hl', 'sg-central', 'us-east'],
         loCluster: () => ['default', 'cluster-01', 'cluster-02', 'cluster-03', 'gray', 'canary'],
+        loTimeRange: () => ['近 7 天', '近 3 天', '近 24h', '近 12h', '近 6h', '近 3h', '近 1h', '近 30mins', '近 15mins', '近 5mins'],
         loDepType: () => ['强依赖/业务强依赖', '弱依赖', '未定义/无法判断'],
         loPriority: () => ['P0', 'P1', 'P2'],
         loSvcType: () => ['HTTP', 'RPC']
