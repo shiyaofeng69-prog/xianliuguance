@@ -1606,10 +1606,12 @@ function getLoEdgeMeta(from, to) {
     // 强弱依赖：error/warn 视为强依赖示例
     const isStrong = toNode.status === 'error' || toNode.priority === 'P0';
     return {
-        fromPsm: fromNode.psm,
-        fromMethod: fromNode.invokeMethod || '-',
-        toPsm: toNode.psm,
-        toMethod: toNode.invokeMethod || '-',
+        fromSvc: fromNode.psm,
+        fromCluster: fromNode.cluster || '-',
+        fromApi: fromNode.invokeMethod || '-',
+        toSvc: toNode.psm,
+        toCluster: toNode.cluster || '-',
+        toApi: toNode.invokeMethod || '-',
         depType: isStrong ? '强依赖' : '弱依赖',
         depColor: isStrong ? 'strong' : 'weak',
         trafficRatio: toNode.trafficRatio || '-',
@@ -1631,12 +1633,13 @@ function openLoEdgeDrawer(from, to) {
     const depBadgeCls = meta.depColor === 'strong' ? 'lo-dep-strong' : 'lo-dep-weak';
     bodyEl.innerHTML = `
         <div class="lo-detail-section">
-            <div class="lo-detail-section-title">调用信息</div>
             <div class="lo-event-content">
-                <div class="lo-event-row"><span class="lo-event-key">上游 psm</span><span class="lo-event-val">${meta.fromPsm}</span></div>
-                <div class="lo-event-row"><span class="lo-event-key">method</span><span class="lo-event-val">${meta.fromMethod}</span></div>
-                <div class="lo-event-row"><span class="lo-event-key">下游 psm</span><span class="lo-event-val">${meta.toPsm}</span></div>
-                <div class="lo-event-row"><span class="lo-event-key">method</span><span class="lo-event-val">${meta.toMethod}</span></div>
+                <div class="lo-event-row"><span class="lo-event-key">调用方服务</span><span class="lo-event-val">${meta.fromSvc}</span></div>
+                <div class="lo-event-row"><span class="lo-event-key">调用方集群</span><span class="lo-event-val">${meta.fromCluster}</span></div>
+                <div class="lo-event-row"><span class="lo-event-key">调用方接口</span><span class="lo-event-val">${meta.fromApi}</span></div>
+                <div class="lo-event-row"><span class="lo-event-key">被调用方服务</span><span class="lo-event-val">${meta.toSvc}</span></div>
+                <div class="lo-event-row"><span class="lo-event-key">被调用方集群</span><span class="lo-event-val">${meta.toCluster}</span></div>
+                <div class="lo-event-row"><span class="lo-event-key">被调用方接口</span><span class="lo-event-val">${meta.toApi}</span></div>
                 <div class="lo-event-row"><span class="lo-event-key">强弱依赖</span><span class="lo-event-val"><span class="lo-dep-tag ${depBadgeCls}">${meta.depType}</span></span></div>
                 <div class="lo-event-row"><span class="lo-event-key">流量比例</span><span class="lo-event-val">${meta.trafficRatio}</span></div>
             </div>
