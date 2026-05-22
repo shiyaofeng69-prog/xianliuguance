@@ -646,10 +646,7 @@ document.addEventListener('DOMContentLoaded', () => {
     });
     $on('historyConfigClose', 'click', closeHistoryConfigDrawer);
     $on('historyConfigMask', 'click', closeHistoryConfigDrawer);
-    $on('btnImportConfig', 'click', () => showToast('导入配置功能开发中'));
     bindHcBulkHandlers();
-    bindHcConfirmHandlers();
-    $on('btnExportAll', 'click', () => showToast('已导出全部配置'));
 
     // Topology level steppers: enforce 1~3
     ['loUpLevel', 'loDownLevel'].forEach(id => {
@@ -673,73 +670,16 @@ document.addEventListener('DOMContentLoaded', () => {
         loConfigState.dirty = false;
         loConfigState.firstFilled = false;
         loResultGenerated = true;
-        // 强制隐藏红点（防御：避免 classList 切换被其它逻辑覆盖）
-        const dot = document.getElementById('loGenerateDot');
-        if (dot) dot.classList.add('hidden');
-        updateLoGenerateDot();
         renderLoTopology();
         renderLoList();
-        showLoStatus('已是最新配置', 'success');
         persistLoFilterDraft();
         showToast('已生成结果');
     });
-    $on('loListSearchBtn', 'click', () => {
-        loListSearchState = {
-            callerSvc: document.getElementById('loListCallerSvc')?.value || '',
-            callerCluster: document.getElementById('loListCallerCluster')?.value || '',
-            calleeSvc: document.getElementById('loListCalleeSvc')?.value || '',
-            calleeCluster: document.getElementById('loListCalleeCluster')?.value || '',
-            calleeMethod: document.getElementById('loListCalleeMethod')?.value || ''
-        };
-        renderLoList();
-    });
-    $on('loListReset', 'click', () => {
-        ['loListCallerSvc', 'loListCallerCluster', 'loListCalleeSvc', 'loListCalleeCluster', 'loListCalleeMethod'].forEach(id => {
-            const el = document.getElementById(id);
-            if (el) el.value = '';
-        });
-        loListSearchState = { callerSvc: '', callerCluster: '', calleeSvc: '', calleeCluster: '', calleeMethod: '' };
-        renderLoList();
-    });
-    $on('loListExportBtn', 'click', (e) => {
-        e.stopPropagation();
-        document.getElementById('loListExportMenu')?.classList.toggle('hidden');
-    });
-    document.addEventListener('click', (e) => {
-        const wrap = document.getElementById('loListExportBtn')?.parentElement;
-        if (wrap && !wrap.contains(e.target)) {
-            document.getElementById('loListExportMenu')?.classList.add('hidden');
-        }
-    });
-    document.querySelectorAll('#loListExportMenu .lo-list-export-item').forEach(item => {
-        item.addEventListener('click', () => {
-            const type = item.dataset.type;
-            document.getElementById('loListExportMenu')?.classList.add('hidden');
-            exportLoList(type);
-        });
-    });
-    $on('loTopoFilterSearch', 'click', () => {
-        loTopoFilterState = {
-            qpsOp: 'gte',
-            qpsVal: document.getElementById('loTopoQpsVal')?.value || '',
-            cpuOp: 'gte',
-            cpuVal: document.getElementById('loTopoCpuVal')?.value || ''
-        };
-        renderLoTopology();
-    });
-    $on('loTopoFilterReset', 'click', () => {
-        ['loTopoQpsVal', 'loTopoCpuVal'].forEach(id => {
-            const el = document.getElementById(id);
-            if (el) el.value = '';
-        });
-        loTopoFilterState = { qpsOp: 'gte', qpsVal: '', cpuOp: 'gte', cpuVal: '' };
-        renderLoTopology();
-    });
+    $on('loListSearch', 'input', renderLoList);
+    $on('loListStatus', 'change', renderLoList);
+    $on('loListExport', 'click', () => showToast('已导出列表数据'));
     $on('loNodeDrawerClose', 'click', closeLoNodeDrawer);
     $on('loNodeDrawerMask', 'click', closeLoNodeDrawer);
-    $on('loEdgeDrawerClose', 'click', closeLoEdgeDrawer);
-    $on('loEdgeDrawerMask', 'click', closeLoEdgeDrawer);
-    $on('loStatusClose', 'click', hideLoStatus);
 
     // 拓扑画布工具栏
     $on('loCanvasLocate', 'click', toggleLoLocatePanel);
@@ -747,6 +687,17 @@ document.addEventListener('DOMContentLoaded', () => {
     $on('loCanvasZoomIn', 'click', () => { loCanvasState.zoom = Math.min(2, loCanvasState.zoom + 0.2); renderLoTopology(); });
     $on('loCanvasZoomOut', 'click', () => { loCanvasState.zoom = Math.max(0.4, loCanvasState.zoom - 0.2); renderLoTopology(); });
     $on('loCanvasFullscreen', 'click', toggleLoFullscreen);
+
+    // Lightbox 关闭
+    $on('loImageLightboxClose', 'click', closeLoImageLightbox);
+    const lbMaskEl = document.querySelector('#loImageLightbox .lo-image-lightbox-mask');
+    if (lbMaskEl) lbMaskEl.addEventListener('click', closeLoImageLightbox);
+
+    // 限流详情 drawer 关闭/保存
+    $on('loLimitDetailDrawerClose', 'click', closeLoLimitDetailDrawer);
+    $on('loLimitDetailDrawerMask', 'click', closeLoLimitDetailDrawer);
+    $on('loLimitDetailCancel', 'click', closeLoLimitDetailDrawer);
+    $on('loLimitDetailSave', 'click', saveLoLimitDetail);
     $on('loLocateInput', 'focus', updateLoLocateDropdown);
     $on('loLocateInput', 'input', updateLoLocateDropdown);
     document.addEventListener('click', (e) => {
@@ -793,7 +744,6 @@ function initSearchableSelects() {
         ],
         loVDC: () => ['maliva', 'useast', 'boe', 'lf', 'hl', 'sg-central', 'us-east'],
         loCluster: () => ['default', 'cluster-01', 'cluster-02', 'cluster-03', 'gray', 'canary'],
-        loTimeRange: () => ['近 7 天', '近 3 天', '近 24h', '近 12h', '近 6h', '近 3h', '近 1h', '近 30mins', '近 15mins', '近 5mins'],
         loDepType: () => ['强依赖/业务强依赖', '弱依赖', '未定义/无法判断'],
         loPriority: () => ['P0', 'P1', 'P2'],
         loSvcType: () => ['HTTP', 'RPC']
@@ -878,172 +828,87 @@ const loTopologyData = {
     target: {
         psm: 'toutiao.ms.argos',
         status: 'normal', // normal | warn | error
+        abnormalTraffic: false,
         qps: '10.67 req/s',
         vdc: 'Singapore-Central / sg3',
         cluster: 'cluster-a',
         method: 'http',
         limitConfig: '阈值 15 req/s，优先级 P1 保底',
         currentQps: '10.67 req/s',
-        peakQps: '18.3 req/s',
-        qpsAvg: '10.67 req/s',
-        p99: '13.2 req/s',
-        threshold: '15 req/s',
+        peakQps: '18.3',
+        p99: '13.2',
+        threshold: '15.0',
         invokeMethod: 'GET /api/v2/argos/query',
         cpu: '36%',
         success: '99.98%',
-        priority: 'P1',
         upstream: 'payment-core / promotion-gateway',
-        upstreamSvc: 'payment-core',
-        upstreamApi: 'POST /api/v1/order/pay',
-        downstream: 'alarm / argos_monitor_data / facade-api-i18n',
-        downstreamSvc: 'toutiao.microservice.alarm',
-        downstreamApi: 'NotifyAlarm',
-        limitSwitch: '已开启',
-        limitType: '单机限流',
-        limitMode: '滑动窗口'
+        downstream: 'alarm / argos_monitor_data / facade-api-i18n'
     },
     downstream: [
         {
             psm: 'bytedance.bytedoc.argos_monitor_data',
             status: 'normal',
+            abnormalTraffic: false,
             qps: '',
             vdc: 'Singapore-Central / sg3',
             cluster: 'cluster-c',
             method: 'rpc',
             limitConfig: '阈值 5k req/s，优先级 P2',
             currentQps: '0 req/s',
-            qpsAvg: '0.3k req/s',
-            peakQps: '0.5k req/s',
-            p99: '0.4k req/s',
-            threshold: '5k req/s',
+            peakQps: '0.5k',
+            p99: '0.4k',
+            threshold: '5k',
             invokeMethod: 'BatchWrite',
             cpu: '20%',
             success: '100%',
-            priority: 'P2',
-            latencyAvg: '0.12 ms',
             upstream: 'toutiao.ms.argos',
-            upstreamSvc: 'toutiao.ms.argos',
-            upstreamApi: 'GET /api/v2/argos/query',
-            downstream: '-',
-            downstreamSvc: '-',
-            downstreamApi: '-',
-            limitSwitch: '已开启',
-            limitType: '集群限流',
-            limitMode: '令牌桶'
+            downstream: '-'
         },
         {
             psm: 'toutiao.microservice.alarm',
             status: 'error',
+            abnormalTraffic: true,
             qps: '609.17 req/s',
             vdc: 'Singapore-Central / sg3',
             cluster: 'cluster-b',
             method: 'rpc',
             limitConfig: '阈值 500 req/s，优先级 P0',
             currentQps: '609.17 req/s',
-            qpsAvg: '480 req/s',
-            peakQps: '8.6k req/s',
-            p99: '7.2k req/s',
-            threshold: '500 req/s',
+            peakQps: '8.6k',
+            p99: '7.2k',
+            threshold: '500',
             invokeMethod: 'NotifyAlarm',
             cpu: '88%',
             success: '91.3%',
-            priority: 'P0',
-            latencyAvg: '5.6 ms',
             upstream: 'toutiao.ms.argos',
-            upstreamSvc: 'toutiao.ms.argos',
-            upstreamApi: 'GET /api/v2/argos/query',
             downstream: '-',
-            downstreamSvc: '-',
-            downstreamApi: '-',
-            limitSwitch: '已开启',
-            limitType: '单机限流',
-            limitMode: '滑动窗口',
-            // 限流事件
-            limitEvent: { time: '2026-05-19 14:23:08', limitValue: '500 req/s', qps: '609.17 req/s' },
-            // 异常事件
-            errorEvent: {
-                time: '2026-05-19 14:25:42',
-                limitValue: '500 req/s',
-                abnormalQps: '8.6k req/s',
-                summary: 'alarm 服务接口响应延迟异常，超过阈值 121.8%',
-                ticketId: 'INC-20260519-882'
-            }
+            limitEvent: { time: '2026-05-19 14:23:08', data: '触发限流，丢弃 1284 次/min，达到阈值 500 req/s 上限 121.8%' },
+            warnEvent: { time: '2026-05-19 14:18:31', data: 'CPU 利用率 88%（阈值 80%），触发预警' },
+            ticketEvent: { time: '2026-05-19 14:25:42', data: '工单 #INC-20260519-882：alarm 服务接口响应延迟异常，关联告警 5 条' }
         },
         {
             psm: 'facade-api-i18n.byted.org',
             status: 'warn',
+            abnormalTraffic: false,
             qps: '',
             vdc: 'Singapore-East / sg5',
             cluster: 'cluster-d',
             method: 'http',
             limitConfig: '阈值 2k req/s，优先级 P1',
             currentQps: '120 req/s',
-            qpsAvg: '120 req/s',
-            peakQps: '1.2k req/s',
-            p99: '0.9k req/s',
-            threshold: '2k req/s',
+            peakQps: '1.2k',
+            p99: '0.9k',
+            threshold: '2k',
             invokeMethod: 'GET /i18n/translate',
             cpu: '32%',
             success: '99.8%',
-            priority: 'P1',
-            latencyAvg: '0.46 ms',
             upstream: 'toutiao.ms.argos',
-            upstreamSvc: 'toutiao.ms.argos',
-            upstreamApi: 'GET /api/v2/argos/query',
             downstream: '-',
-            downstreamSvc: '-',
-            downstreamApi: '-',
-            limitSwitch: '已开启',
-            limitType: '单机限流',
-            limitMode: '漏桶',
-            // 预警事件
-            warnEvent: { time: '2026-05-19 13:48:11', limitValue: '2k req/s', waterLevel: '60%' }
+            warnEvent: { time: '2026-05-19 13:48:11', data: '调用成功率 99.8%（阈值 99.9%），触发预警' }
         }
     ],
     upstream: []
 };
-
-// 列表视图搜索状态
-let loListSearchState = { callerSvc: '', callerCluster: '', calleeSvc: '', calleeCluster: '', calleeMethod: '' };
-
-// 拓扑视图筛选状态（QPS / CPU 利用率）
-let loTopoFilterState = { qpsOp: 'gte', qpsVal: '', cpuOp: 'gte', cpuVal: '' };
-
-// 解析数值：支持 '10.67 req/s' / '8.6k' / '88%' 等格式
-function parseLoNumber(raw) {
-    if (raw === null || raw === undefined) return NaN;
-    const s = String(raw).trim().toLowerCase();
-    if (!s || s === '-') return NaN;
-    const m = s.match(/(-?\d+(?:\.\d+)?)\s*([km]?)/);
-    if (!m) return NaN;
-    let n = parseFloat(m[1]);
-    if (m[2] === 'k') n *= 1000;
-    if (m[2] === 'm') n *= 1000000;
-    return n;
-}
-
-function compareLoFilter(actual, op, expected) {
-    if (isNaN(actual) || isNaN(expected)) return true;
-    if (op === 'gte') return actual >= expected;
-    if (op === 'lte') return actual <= expected;
-    if (op === 'eq') return Math.abs(actual - expected) < 1e-6;
-    return true;
-}
-
-function passLoTopoFilter(node) {
-    const f = loTopoFilterState;
-    if (f.qpsVal !== '') {
-        const exp = parseFloat(f.qpsVal);
-        const actual = parseLoNumber(node.peakQps || node.qps || node.currentQps);
-        if (!compareLoFilter(actual, f.qpsOp, exp)) return false;
-    }
-    if (f.cpuVal !== '') {
-        const exp = parseFloat(f.cpuVal);
-        const actual = parseLoNumber(node.cpu);
-        if (!compareLoFilter(actual, f.cpuOp, exp)) return false;
-    }
-    return true;
-}
 
 // 状态颜色映射
 const LO_STATUS_COLOR = {
@@ -1059,7 +924,8 @@ const loCanvasState = {
     stat: '最新值',
     realtime: true,
     legend: true,
-    realtimeTimer: null
+    realtimeTimer: null,
+    alertFilter: 'all'
 };
 
 // 各节点的指标样本（用于切换节点指标/统计函数时显示）
@@ -1078,28 +944,6 @@ function getLoMetricLabel(node) {
 function renderLoTopology() {
     const svg = document.getElementById('loTopologySvg');
     if (!svg) return;
-    // 空态：未生成结果时清空画布并显示提示文案
-    if (!loResultGenerated) {
-        svg.innerHTML = '';
-        svg.removeAttribute('viewBox');
-        const canvas = document.querySelector('.lo-canvas');
-        if (canvas) {
-            let empty = canvas.querySelector('.lo-empty-tip');
-            if (!empty) {
-                empty = document.createElement('div');
-                empty.className = 'lo-empty-tip';
-                empty.textContent = '当前暂无链路观测结果';
-                canvas.appendChild(empty);
-            }
-            empty.classList.remove('hidden');
-        }
-        return;
-    }
-    // 有结果时移除空态提示
-    const canvas = document.querySelector('.lo-canvas');
-    const empty = canvas?.querySelector('.lo-empty-tip');
-    if (empty) empty.classList.add('hidden');
-
     const baseW = svg.clientWidth || 900;
     const w = baseW;
     const h = 460;
@@ -1113,34 +957,33 @@ function renderLoTopology() {
     const targetX = w * 0.32;
     const targetY = h / 2;
     const downX = w * 0.62;
-    // 应用拓扑筛选：仅保留满足 QPS / CPU 条件的下游节点
-    const filteredDown = loTopologyData.downstream.filter(passLoTopoFilter);
-    const downCount = filteredDown.length;
+    const downCount = loTopologyData.downstream.length;
     const downGap = 70;
     const downStartY = targetY - ((downCount - 1) * downGap) / 2;
 
     let html = '';
 
-    // Edges (curved) - 双层路径：透明粗 hit + 可见细线
-    filteredDown.forEach((node, i) => {
+    // Edges (curved)
+    loTopologyData.downstream.forEach((node, i) => {
         const ny = downStartY + i * downGap;
         const c1x = (targetX + downX) / 2;
         const path = `M ${targetX + 90} ${targetY} C ${c1x} ${targetY}, ${c1x} ${ny}, ${downX - 4} ${ny}`;
         const stroke = node.status === 'error' ? '#ff4d4f' : (node.status === 'warn' ? '#fa8c16' : '#ffa39e');
-        const fromPsm = loTopologyData.target.psm;
-        const toPsm = node.psm;
-        // 透明 hit-area 粗线
-        html += `<path class="lo-edge-hit" data-from="${fromPsm}" data-to="${toPsm}" d="${path}" fill="none" stroke="transparent" stroke-width="14" style="cursor:pointer"/>`;
-        // 可见细线
-        html += `<path class="lo-edge" data-from="${fromPsm}" data-to="${toPsm}" d="${path}" fill="none" stroke="${stroke}" stroke-width="1.5" opacity="0.85" style="pointer-events:none"/>`;
-        html += `<circle cx="${downX - 4}" cy="${ny}" r="3" fill="${stroke}" style="pointer-events:none"/>`;
+        html += `<path class="lo-edge" data-from="${loTopologyData.target.psm}" data-to="${node.psm}" d="${path}" fill="none" stroke="${stroke}" stroke-width="1.5" opacity="0.85"/>`;
+        html += `<circle cx="${downX - 4}" cy="${ny}" r="3" fill="${stroke}"/>`;
+        const labelX = (targetX + 90 + downX) / 2;
+        const labelY = (targetY + ny) / 2 - 6;
+        const metric = getLoMetricLabel(node);
+        if (metric !== '-') {
+            html += `<text x="${labelX}" y="${labelY}" text-anchor="middle" fill="${stroke}" font-size="11">${metric}</text>`;
+        }
     });
 
     // Target node
     html += renderLoNode(targetX, targetY, loTopologyData.target, true);
 
     // Downstream nodes
-    filteredDown.forEach((node, i) => {
+    loTopologyData.downstream.forEach((node, i) => {
         const ny = downStartY + i * downGap;
         html += renderLoNode(downX, ny, node, false);
     });
@@ -1174,99 +1017,139 @@ function renderLoTopology() {
         });
     });
 
-    // 边点击 -> 调用信息抽屉
-    svg.querySelectorAll('.lo-edge-hit').forEach(hit => {
-        hit.addEventListener('click', (e) => {
-            e.stopPropagation();
-            const from = hit.getAttribute('data-from');
-            const to = hit.getAttribute('data-to');
-            highlightLoEdge(from, to);
-            openLoEdgeDrawer(from, to);
-        });
-    });
-
     // 更新节点计数
     const cnt = document.getElementById('loCanvasCount');
     if (cnt) cnt.textContent = String(1 + loTopologyData.downstream.length);
+
+    // 更新告警筛选条 + 一次性绑定 chips
+    updateLoAlertBar();
+    bindLoAlertBarChips();
 }
 
 function renderLoNode(x, y, node, isTarget) {
     const status = node.status || 'normal';
     const color = LO_STATUS_COLOR[status];
     const label = node.psm;
-    const textW = Math.max(140, label.length * 7 + 50);
+    const baseTextW = Math.max(140, label.length * 7 + 50);
+    const hasAbn = !!node.abnormalTraffic;
+    const tagW = 56;
+    const tagGap = 6; // 标签与文字的间距
+    // 节点宽度：含标签时预留出标签宽度 + 间距 + 右内边距
+    const rectW = hasAbn ? (baseTextW + tagW + tagGap + 6) : baseTextW;
     const rectH = 30;
     const rectX = x;
     const rectY = y - rectH / 2;
+
+    // alertFilter 命中判定
+    const filter = loCanvasState.alertFilter || 'all';
+    let matched = true;
+    if (!isTarget && filter !== 'all') {
+        if (filter === 'error') matched = (status === 'error');
+        else if (filter === 'warn') matched = (status === 'warn');
+        else if (filter === 'abnormal') matched = !!node.abnormalTraffic;
+        else matched = true;
+    }
+    const dim = !isTarget && filter !== 'all' && !matched;
+    const groupOpacity = dim ? 0.25 : 1;
+    const baseStrokeW = isTarget || status === 'error' ? 1.8 : 1;
+    const strokeW = (!isTarget && filter !== 'all' && matched) ? 2.5 : baseStrokeW;
+
+    let abnTagSvg = '';
+    if (hasAbn) {
+        // 放置在节点内部右侧（rectX + rectW - tagW - 6 内边距）
+        const tagX = rectX + rectW - tagW - 6;
+        const tagY = y - 8;
+        abnTagSvg = `
+            <rect x="${tagX}" y="${tagY}" width="${tagW}" height="16" rx="3" fill="#722ed1"/>
+            <text x="${tagX + tagW / 2}" y="${tagY + 12}" text-anchor="middle" fill="#fff" font-size="11">异常流量</text>
+        `;
+    }
+
     return `
-        <g data-psm="${label}">
-            <rect x="${rectX}" y="${rectY}" width="${textW}" height="${rectH}" fill="${color.rect}" stroke="${color.stroke}" stroke-width="${isTarget || status === 'error' ? 1.8 : 1}" rx="4"/>
+        <g data-psm="${label}" opacity="${groupOpacity}">
+            <rect x="${rectX}" y="${rectY}" width="${rectW}" height="${rectH}" fill="${color.rect}" stroke="${color.stroke}" stroke-width="${strokeW}" rx="4"/>
             <circle cx="${rectX + 16}" cy="${y}" r="6" fill="${color.dot}"/>
             <text x="${rectX + 30}" y="${y + 4}" fill="${color.text}" font-size="12">${label}</text>
+            ${abnTagSvg}
         </g>
     `;
+}
+
+let _loAlertChipsBound = false;
+function bindLoAlertBarChips() {
+    if (_loAlertChipsBound) return;
+    const panel = document.getElementById('loAlertFilterPanel');
+    if (!panel) return;
+    panel.querySelectorAll('.lo-alert-chip').forEach(chip => {
+        chip.addEventListener('click', () => {
+            panel.querySelectorAll('.lo-alert-chip').forEach(c => c.classList.remove('active'));
+            chip.classList.add('active');
+            loCanvasState.alertFilter = chip.getAttribute('data-filter') || 'all';
+            renderLoTopology();
+        });
+    });
+    _loAlertChipsBound = true;
+}
+
+function updateLoAlertBar() {
+    const all = [loTopologyData.target, ...loTopologyData.downstream];
+    let normal = 0, err = 0, warn = 0, abnormal = 0;
+    all.forEach(n => {
+        if (n.status === 'error') err++;
+        else if (n.status === 'warn') warn++;
+        else normal++;
+        if (n.abnormalTraffic) abnormal++;
+    });
+    const setText = (id, v) => { const el = document.getElementById(id); if (el) el.textContent = String(v); };
+    setText('loLegendCntNormal', normal);
+    setText('loLegendCntError', err);
+    setText('loLegendCntWarn', warn);
+    setText('loLegendCntAbnormal', abnormal);
+    const hasAlert = (err + warn + abnormal) > 0;
+    const panel = document.getElementById('loAlertFilterPanel');
+    if (panel) {
+        if (hasAlert) panel.classList.remove('hidden');
+        else panel.classList.add('hidden');
+    }
 }
 
 function renderLoList() {
     const tbody = document.getElementById('loListTableBody');
     if (!tbody) return;
-    // 空态：未生成结果时清空列表（不显示文字提示）
-    if (!loResultGenerated) {
-        tbody.innerHTML = '';
-        return;
-    }
-    // 把每个下游节点视为一条调用对（caller=target, callee=downstream）
-    const caller = loTopologyData.target;
-    const callerSvc = caller.psm;
-    const callerCluster = caller.cluster || 'default';
-    const allRows = loTopologyData.downstream.map(n => {
-        return {
-            psm: n.psm,
-            callerSvc,
-            callerCluster,
-            calleeSvc: n.psm,
-            calleeCluster: n.cluster || 'default',
-            calleeMethod: n.invokeMethod || '-',
-            limitValue: n.threshold || '-',
-            limitType: n.limitType || '-',
-            limitMode: n.limitMode || '-',
-            trafficMax: n.peakQps || '-',
-            trafficAvg: n.qpsAvg || n.qps || n.currentQps || '-',
-            trafficP99: n.p99 || '-',
-            cpu: n.cpu || '-'
-        };
+    const allNodes = [loTopologyData.target, ...loTopologyData.downstream];
+    const search = (document.getElementById('loListSearch')?.value || '').toLowerCase().trim();
+    const statusFilter = document.getElementById('loListStatus')?.value || 'all';
+    const rows = allNodes.filter(n => {
+        if (statusFilter !== 'all' && n.status !== statusFilter) return false;
+        if (search && !n.psm.toLowerCase().includes(search)) return false;
+        return true;
     });
-
-    const filters = loListSearchState || {};
-    const match = (val, key) => {
-        const kw = (filters[key] || '').toLowerCase().trim();
-        if (!kw) return true;
-        return (val || '').toString().toLowerCase().includes(kw);
+    const statusBadge = (s) => {
+        if (s === 'error') return '<span class="badge badge-error">异常</span>';
+        if (s === 'warn') return '<span class="badge badge-warning">预警</span>';
+        return '<span class="badge badge-success">正常</span>';
     };
-    const rows = allRows.filter(r =>
-        match(r.callerSvc, 'callerSvc') &&
-        match(r.callerCluster, 'callerCluster') &&
-        match(r.calleeSvc, 'calleeSvc') &&
-        match(r.calleeCluster, 'calleeCluster') &&
-        match(r.calleeMethod, 'calleeMethod')
-    );
-
-    tbody.innerHTML = rows.map(r => `
+    const renderAbnormal = (n) => {
+        if (n.status === 'normal') return '-';
+        const lines = [];
+        if (n.limitEvent) lines.push(`<div><span class="lo-abn-label">限流</span> ${n.limitEvent.time}：${n.limitEvent.data}</div>`);
+        if (n.warnEvent) lines.push(`<div><span class="lo-abn-label">预警</span> ${n.warnEvent.time}：${n.warnEvent.data}</div>`);
+        if (n.ticketEvent) lines.push(`<div><span class="lo-abn-label">工单</span> ${n.ticketEvent.time}：${n.ticketEvent.data}</div>`);
+        return lines.length ? `<div class="lo-abn-cell">${lines.join('')}</div>` : '-';
+    };
+    tbody.innerHTML = rows.map(n => `
         <tr>
-            <td>${r.callerSvc}</td>
-            <td>${r.callerCluster}</td>
-            <td>${r.calleeSvc}</td>
-            <td>${r.calleeCluster}</td>
-            <td>${r.calleeMethod}</td>
-            <td>${r.limitValue}</td>
-            <td>${r.limitType}</td>
-            <td>${r.limitMode}</td>
-            <td>${r.trafficMax}</td>
-            <td>${r.trafficAvg}</td>
-            <td>${r.trafficP99}</td>
-            <td>${r.cpu}</td>
+            <td>${n.psm}</td>
+            <td>${n.vdc} / ${n.cluster} / ${n.method}</td>
+            <td>${n.limitConfig}</td>
+            <td>${n.invokeMethod}</td>
+            <td>峰值 ${n.peakQps} / P99 ${n.p99} / 阈值 ${n.threshold}</td>
+            <td>${n.cpu}</td>
+            <td>${statusBadge(n.status)}</td>
+            <td>${renderAbnormal(n)}</td>
+            <td><a href="#" class="action-link" data-detail="${n.psm}">详情</a></td>
         </tr>
-    `).join('') || `<tr><td colspan="12" style="text-align:center;color:#999;padding:24px">暂无匹配数据</td></tr>`;
+    `).join('') || `<tr><td colspan="9" style="text-align:center;color:#999;padding:24px">暂无匹配数据</td></tr>`;
 
     tbody.querySelectorAll('[data-detail]').forEach(a => {
         a.addEventListener('click', (e) => {
@@ -1276,159 +1159,9 @@ function renderLoList() {
     });
 }
 
-function getLoListExportRows() {
-    if (!loResultGenerated) return { headers: [], rows: [] };
-    const caller = loTopologyData.target;
-    const callerSvc = caller.psm;
-    const callerCluster = caller.cluster || 'default';
-    const all = loTopologyData.downstream.map(n => ({
-        callerSvc,
-        callerCluster,
-        calleeSvc: n.psm,
-        calleeCluster: n.cluster || 'default',
-        calleeMethod: n.invokeMethod || '-',
-        limitValue: n.threshold || '-',
-        limitType: n.limitType || '-',
-        limitMode: n.limitMode || '-',
-        trafficMax: n.peakQps || '-',
-        trafficAvg: n.qpsAvg || n.qps || n.currentQps || '-',
-        trafficP99: n.p99 || '-',
-        cpu: n.cpu || '-'
-    }));
-    const filters = loListSearchState || {};
-    const match = (val, key) => {
-        const kw = (filters[key] || '').toLowerCase().trim();
-        if (!kw) return true;
-        return (val || '').toString().toLowerCase().includes(kw);
-    };
-    const rows = all.filter(r =>
-        match(r.callerSvc, 'callerSvc') &&
-        match(r.callerCluster, 'callerCluster') &&
-        match(r.calleeSvc, 'calleeSvc') &&
-        match(r.calleeCluster, 'calleeCluster') &&
-        match(r.calleeMethod, 'calleeMethod')
-    );
-    const headers = ['调用方服务', '调用方集群', '被调用方服务', '被调用方集群', '被调用方方法', '限流值', '限流类型', '限流模式', '流量 Max', '流量 Avg', '流量 P99', 'CPU 利用率'];
-    return { headers, rows };
-}
-
-function exportLoList(type) {
-    const { headers, rows } = getLoListExportRows();
-    if (!rows.length) {
-        showToast('当前列表为空，无法导出');
-        return;
-    }
-    if (type === 'feishu') {
-        // 飞书表格导出：实际场景应调用飞书 OpenAPI；此处 mock 复制 TSV 到剪贴板并提示
-        const tsv = [headers.join('\t')].concat(rows.map(r => [
-            r.callerSvc, r.callerCluster, r.calleeSvc, r.calleeCluster, r.calleeMethod,
-            r.limitValue, r.limitType, r.limitMode, r.trafficMax, r.trafficAvg, r.trafficP99, r.cpu
-        ].join('\t'))).join('\n');
-        if (navigator.clipboard?.writeText) {
-            navigator.clipboard.writeText(tsv).then(
-                () => showToast('已复制为飞书表格格式，可粘贴到飞书多维表格'),
-                () => showToast('已生成飞书表格内容（剪贴板权限受限）')
-            );
-        } else {
-            showToast('已生成飞书表格内容');
-        }
-        return;
-    }
-    // 默认 excel：导出为 CSV（带 BOM，Excel 识别中文）
-    const escape = (v) => {
-        const s = String(v ?? '');
-        return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
-    };
-    const csvLines = [headers.map(escape).join(',')];
-    rows.forEach(r => {
-        csvLines.push([r.callerSvc, r.callerCluster, r.calleeSvc, r.calleeCluster, r.calleeMethod,
-            r.limitValue, r.limitType, r.limitMode, r.trafficMax, r.trafficAvg, r.trafficP99, r.cpu].map(escape).join(','));
-    });
-    const blob = new Blob(['\ufeff' + csvLines.join('\n')], { type: 'text/csv;charset=utf-8;' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `链路观测列表_${new Date().toISOString().slice(0, 10)}.csv`;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
-    showToast('已导出为 Excel 表格');
-}
-
 function findLoNode(psm) {
     if (loTopologyData.target.psm === psm) return loTopologyData.target;
     return loTopologyData.downstream.find(n => n.psm === psm);
-}
-
-// 当前节点作为「被调用方」时的调用对（上游 → 当前节点）
-function getLoUpstreamCalls(node) {
-    const target = loTopologyData.target;
-    if (node.psm === target.psm) {
-        return (node.upstreamSvc && node.upstreamSvc !== '-') ? [{
-            callerSvc: node.upstreamSvc,
-            callerCluster: 'default',
-            calleeSvc: node.psm,
-            calleeCluster: node.cluster || 'default',
-            calleeMethod: node.upstreamApi || node.invokeMethod || '-',
-            limitValue: node.threshold || '-',
-            limitType: node.limitType || '-',
-            limitMode: node.limitMode || '-',
-            trafficMax: node.peakQps || '-',
-            trafficAvg: node.qpsAvg || node.qps || '-',
-            trafficP99: node.p99 || '-',
-            cpu: node.cpu || '-'
-        }] : [];
-    }
-    return [{
-        callerSvc: target.psm,
-        callerCluster: target.cluster || 'default',
-        calleeSvc: node.psm,
-        calleeCluster: node.cluster || 'default',
-        calleeMethod: node.invokeMethod || '-',
-        limitValue: node.threshold || '-',
-        limitType: node.limitType || '-',
-        limitMode: node.limitMode || '-',
-        trafficMax: node.peakQps || '-',
-        trafficAvg: node.qpsAvg || node.qps || '-',
-        trafficP99: node.p99 || '-',
-        cpu: node.cpu || '-'
-    }];
-}
-
-// 当前节点作为「调用方」时的调用对（当前节点 → 下游）
-function getLoDownstreamCalls(node) {
-    const target = loTopologyData.target;
-    if (node.psm === target.psm) {
-        return loTopologyData.downstream.map(d => ({
-            callerSvc: target.psm,
-            callerCluster: target.cluster || 'default',
-            callerMethod: d.invokeMethod || '-',
-            calleeSvc: d.psm,
-            calleeCluster: d.cluster || 'default',
-            limitValue: d.threshold || '-',
-            limitType: d.limitType || '-',
-            limitMode: d.limitMode || '-',
-            trafficMax: d.peakQps || '-',
-            trafficAvg: d.qpsAvg || d.qps || '-',
-            trafficP99: d.p99 || '-',
-            cpu: d.cpu || '-'
-        }));
-    }
-    return (node.downstreamSvc && node.downstreamSvc !== '-') ? [{
-        callerSvc: node.psm,
-        callerCluster: node.cluster || 'default',
-        callerMethod: node.downstreamApi || '-',
-        calleeSvc: node.downstreamSvc,
-        calleeCluster: 'default',
-        limitValue: node.threshold || '-',
-        limitType: node.limitType || '-',
-        limitMode: node.limitMode || '-',
-        trafficMax: '-',
-        trafficAvg: '-',
-        trafficP99: '-',
-        cpu: node.cpu || '-'
-    }] : [];
 }
 
 function openLoNodeDrawer(psm) {
@@ -1440,250 +1173,377 @@ function openLoNodeDrawer(psm) {
     if (!titleEl || !bodyEl || !drawer) return;
     titleEl.textContent = node.psm;
 
-    const statusText = node.status === 'error' ? '异常' : (node.status === 'warn' ? '预警' : '正常');
-    const statusCls = node.status === 'error' ? 'badge-error' : (node.status === 'warn' ? 'badge-warning' : 'badge-success');
+    const isAbnormal = node.status !== 'normal';
+    const badgeHtml = isAbnormal
+        ? `<span class="badge ${node.status === 'error' ? 'badge-error' : 'badge-warning'}">${node.status === 'error' ? '异常' : '预警'}</span>`
+        : '';
 
-    // 构造上游调用对表格行（被调用方方法）
-    const buildUpstreamRows = (calls) => {
-        if (!calls || !calls.length) {
-            return `<tr><td colspan="12" style="text-align:center;color:#999;padding:16px">暂无数据</td></tr>`;
-        }
-        return calls.map(c => `
-            <tr>
-                <td>${c.callerSvc}</td>
-                <td>${c.callerCluster}</td>
-                <td>${c.calleeSvc}</td>
-                <td>${c.calleeCluster}</td>
-                <td>${c.calleeMethod}</td>
-                <td>${c.limitValue}</td>
-                <td>${c.limitType}</td>
-                <td>${c.limitMode}</td>
-                <td>${c.trafficMax}</td>
-                <td>${c.trafficAvg}</td>
-                <td>${c.trafficP99}</td>
-                <td>${c.cpu}</td>
-            </tr>
-        `).join('');
-    };
-    // 构造下游调用对表格行（调用方方法）
-    const buildDownstreamRows = (calls) => {
-        if (!calls || !calls.length) {
-            return `<tr><td colspan="12" style="text-align:center;color:#999;padding:16px">暂无数据</td></tr>`;
-        }
-        return calls.map(c => `
-            <tr>
-                <td>${c.callerSvc}</td>
-                <td>${c.callerCluster}</td>
-                <td>${c.callerMethod}</td>
-                <td>${c.calleeSvc}</td>
-                <td>${c.calleeCluster}</td>
-                <td>${c.limitValue}</td>
-                <td>${c.limitType}</td>
-                <td>${c.limitMode}</td>
-                <td>${c.trafficMax}</td>
-                <td>${c.trafficAvg}</td>
-                <td>${c.trafficP99}</td>
-                <td>${c.cpu}</td>
-            </tr>
-        `).join('');
-    };
-    const upstreamRows = buildUpstreamRows(getLoUpstreamCalls(node));
-    const downstreamRows = buildDownstreamRows(getLoDownstreamCalls(node));
-
-    // 告警事件区：限流 / 预警 / 异常
-    const renderEventBlock = (label, content) => `
-        <div class="lo-event-block">
-            <div class="lo-event-label">${label}</div>
-            <div class="lo-event-content">${content || '<span class="lo-event-empty">-</span>'}</div>
-        </div>`;
-
-    // 限流事件
-    let limitContent = '';
-    if (node.limitEvent) {
-        limitContent = `
-            <div class="lo-event-row"><span class="lo-event-key">限流发生时间</span><span class="lo-event-val">${node.limitEvent.time}</span></div>
-            <div class="lo-event-row"><span class="lo-event-key">限流值</span><span class="lo-event-val">${node.limitEvent.limitValue}</span></div>
-            <div class="lo-event-row"><span class="lo-event-key">QPS</span><span class="lo-event-val">${node.limitEvent.qps}</span></div>`;
-    }
-    // 预警事件
-    let warnContent = '';
-    if (node.warnEvent) {
-        warnContent = `
-            <div class="lo-event-row"><span class="lo-event-key">预警发生时间</span><span class="lo-event-val">${node.warnEvent.time}</span></div>
-            <div class="lo-event-row"><span class="lo-event-key">限流值</span><span class="lo-event-val">${node.warnEvent.limitValue}</span></div>
-            <div class="lo-event-row"><span class="lo-event-key">限流水位</span><span class="lo-event-val">${node.warnEvent.waterLevel}</span></div>`;
-    }
-    // 异常事件
-    let errorContent = '';
-    if (node.errorEvent) {
-        const tid = node.errorEvent.ticketId;
-        errorContent = `
-            <div class="lo-event-row"><span class="lo-event-key">异常流量发生时间</span><span class="lo-event-val">${node.errorEvent.time}</span></div>
-            <div class="lo-event-row"><span class="lo-event-key">限流值</span><span class="lo-event-val">${node.errorEvent.limitValue}</span></div>
-            <div class="lo-event-row"><span class="lo-event-key">异常 QPS 值</span><span class="lo-event-val">${node.errorEvent.abnormalQps}</span></div>
-            <div class="lo-event-row"><span class="lo-event-key">概述</span><span class="lo-event-val">${node.errorEvent.summary}</span></div>
-            <div class="lo-event-row"><span class="lo-event-key">工单 ID</span><span class="lo-event-val"><a href="https://ticket.example.com/${tid}" target="_blank" class="lo-event-ticket">${tid}</a></span></div>`;
-    }
-
-    // 仅异常/限流/预警节点显示告警事件区
-    const hasAlert = node.status !== 'normal';
-    const alertSection = hasAlert ? `
+    // 基础信息（两列）
+    const baseHtml = `
         <div class="lo-detail-section">
-            <div class="lo-detail-section-title">告警事件 <span class="badge ${statusCls}">${statusText}</span></div>
-            <div class="lo-event-list">
-                ${node.limitEvent ? renderEventBlock('限流', limitContent) : ''}
-                ${node.warnEvent ? renderEventBlock('预警', warnContent) : ''}
-                ${node.errorEvent ? renderEventBlock('异常', errorContent) : ''}
+            <div class="lo-detail-section-title">基本信息${badgeHtml ? ' ' + badgeHtml : ''}</div>
+            <div class="lo-base-grid">
+                <div class="lo-base-item"><span class="lo-base-label">链路入口</span><span class="lo-base-value">${node.psm}</span></div>
+                <div class="lo-base-item"><span class="lo-base-label">VDC</span><span class="lo-base-value">${node.vdc}</span></div>
+                <div class="lo-base-item"><span class="lo-base-label">集群</span><span class="lo-base-value">${node.cluster}</span></div>
+                <div class="lo-base-item"><span class="lo-base-label">优先级</span><span class="lo-base-value">${(node.limitConfig || '').match(/P\d/) ? (node.limitConfig.match(/P\d[^，,]*/) || ['P1'])[0] : 'P1'}</span></div>
             </div>
         </div>
-    ` : '';
-
-    bodyEl.innerHTML = `
-        <div class="lo-detail-section">
-            <div class="lo-detail-section-title">Upstream Method</div>
-            <div class="lo-method-table-wrap">
-                <table class="lo-method-table">
-                    <thead>
-                        <tr>
-                            <th>调用方服务</th>
-                            <th>调用方集群</th>
-                            <th>被调用方服务</th>
-                            <th>被调用方集群</th>
-                            <th>被调用方方法</th>
-                            <th>限流值</th>
-                            <th>限流类型</th>
-                            <th>限流模式</th>
-                            <th>流量 Max</th>
-                            <th>流量 Avg</th>
-                            <th>流量 P99</th>
-                            <th>CPU 利用率</th>
-                        </tr>
-                    </thead>
-                    <tbody>${upstreamRows}</tbody>
-                </table>
-            </div>
-        </div>
-        <div class="lo-detail-section">
-            <div class="lo-detail-section-title">Downstream Method</div>
-            <div class="lo-method-table-wrap">
-                <table class="lo-method-table">
-                    <thead>
-                        <tr>
-                            <th>调用方服务</th>
-                            <th>调用方集群</th>
-                            <th>调用方方法</th>
-                            <th>被调用方服务</th>
-                            <th>被调用方集群</th>
-                            <th>限流值</th>
-                            <th>限流类型</th>
-                            <th>限流模式</th>
-                            <th>流量 Max</th>
-                            <th>流量 Avg</th>
-                            <th>流量 P99</th>
-                            <th>CPU 利用率</th>
-                        </tr>
-                    </thead>
-                    <tbody>${downstreamRows}</tbody>
-                </table>
-            </div>
-        </div>
-        ${alertSection}
     `;
+
+    // 上游接口信息（伪数据示例：调用方）
+    const upstreamRows = [
+        { svc: node.upstream || '-', cluster: 'cluster-up', method: 'invoke', max: node.peakQps || '-', avg: node.currentQps || '-', p99: node.p99 || '-', cpu: node.cpu || '-' }
+    ];
+    const upstreamHtml = `
+        <div class="lo-detail-section">
+            <div class="lo-detail-section-title">上游接口信息</div>
+            <table class="data-table lo-iface-table">
+                <thead><tr>
+                    <th>调用方服务</th><th>调用方集群</th><th>调用方方法</th>
+                    <th>流量 Max</th><th>流量 Avg</th><th>流量 P99</th><th>CPU 利用率</th>
+                </tr></thead>
+                <tbody>
+                    ${upstreamRows.map(r => `<tr><td>${r.svc}</td><td>${r.cluster}</td><td>${r.method}</td><td>${r.max}</td><td>${r.avg}</td><td>${r.p99}</td><td>${r.cpu}</td></tr>`).join('')}
+                </tbody>
+            </table>
+        </div>
+    `;
+
+    // 下游接口信息
+    const downstreamRows = [
+        { svc: node.downstream || '-', cluster: 'cluster-dn', method: node.invokeMethod || '-', max: node.peakQps || '-', avg: node.currentQps || '-', p99: node.p99 || '-', cpu: node.cpu || '-' }
+    ];
+    const downstreamHtml = `
+        <div class="lo-detail-section">
+            <div class="lo-detail-section-title">下游接口信息</div>
+            <table class="data-table lo-iface-table">
+                <thead><tr>
+                    <th>被调用方服务</th><th>被调用方集群</th><th>被调用方方法</th>
+                    <th>流量 Max</th><th>流量 Avg</th><th>流量 P99</th><th>CPU 利用率</th>
+                </tr></thead>
+                <tbody>
+                    ${downstreamRows.map(r => `<tr><td>${r.svc}</td><td>${r.cluster}</td><td>${r.method}</td><td>${r.max}</td><td>${r.avg}</td><td>${r.p99}</td><td>${r.cpu}</td></tr>`).join('')}
+                </tbody>
+            </table>
+        </div>
+    `;
+
+    // 告警事件区块
+    let alertHtml = '';
+    if (isAbnormal) {
+        const qpsChartHtml = buildLoNodeQpsChart(node);
+        // 限流表
+        const limitRows = node.limitEvent
+            ? [{ iface: node.invokeMethod || '-', type: 'QPS 限流', limit: node.threshold || '-', traffic: node.peakQps || '-', time: node.limitEvent.time }]
+            : [];
+        const limitTable = `
+            <div class="lo-alert-sub-title">限流</div>
+            <table class="data-table lo-iface-table">
+                <thead><tr><th>限流接口</th><th>限流类型</th><th>限流值</th><th>流量值</th><th>触发时间</th></tr></thead>
+                <tbody>
+                    ${limitRows.length
+                        ? limitRows.map(r => `<tr><td>${r.iface}</td><td>${r.type}</td><td>${r.limit}</td><td>${r.traffic}</td><td>${r.time}</td></tr>`).join('')
+                        : `<tr><td colspan="5" style="text-align:center;color:#999">暂无数据</td></tr>`}
+                </tbody>
+            </table>
+        `;
+
+        // 预警表
+        const warnRows = node.warnEvent
+            ? [{ iface: node.invokeMethod || '-', type: '指标预警', limit: node.threshold || '-', water: parseLoThresholdWaterText(node.threshold), time: node.warnEvent.time }]
+            : [];
+        const warnTable = `
+            <div class="lo-alert-sub-title">预警</div>
+            <table class="data-table lo-iface-table">
+                <thead><tr><th>限流接口</th><th>限流类型</th><th>限流值</th><th>限流水位</th><th>触发时间</th></tr></thead>
+                <tbody>
+                    ${warnRows.length
+                        ? warnRows.map(r => `<tr><td>${r.iface}</td><td>${r.type}</td><td>${r.limit}</td><td>${r.water}</td><td>${r.time}</td></tr>`).join('')
+                        : `<tr><td colspan="5" style="text-align:center;color:#999">暂无数据</td></tr>`}
+                </tbody>
+            </table>
+        `;
+
+        // 异常表
+        const abnRows = node.ticketEvent
+            ? [{ iface: node.invokeMethod || '-', type: '异常流量', limit: node.threshold || '-', traffic: node.peakQps || '-', time: node.ticketEvent.time, ticket: (node.ticketEvent.data.match(/#?INC-\d+-\d+/) || ['-'])[0] }]
+            : [];
+        const abnTable = `
+            <div class="lo-alert-sub-title">异常</div>
+            <table class="data-table lo-iface-table">
+                <thead><tr><th>限流接口</th><th>限流类型</th><th>限流值</th><th>流量值</th><th>触发时间</th><th>工单 ID</th></tr></thead>
+                <tbody>
+                    ${abnRows.length
+                        ? abnRows.map(r => `<tr><td>${r.iface}</td><td>${r.type}</td><td>${r.limit}</td><td>${r.traffic}</td><td>${r.time}</td><td>${r.ticket}</td></tr>`).join('')
+                        : `<tr><td colspan="6" style="text-align:center;color:#999">暂无数据</td></tr>`}
+                </tbody>
+            </table>
+        `;
+
+        // 限流配置表
+        const cfgRows = [{ iface: node.invokeMethod || '-', type: 'QPS 限流', limit: node.threshold || '-', cpu: node.cpu || '-' }];
+        const cfgTable = `
+            <div class="lo-alert-sub-title">限流配置</div>
+            <table class="data-table lo-iface-table">
+                <thead><tr><th>限流接口</th><th>限流类型</th><th>限流值</th><th>CPU 利用率</th><th>操作</th></tr></thead>
+                <tbody>
+                    ${cfgRows.map(r => `<tr><td>${r.iface}</td><td>${r.type}</td><td>${r.limit}</td><td>${r.cpu}</td><td><a class="lo-config-action" href="#" data-psm="${node.psm}">编辑</a></td></tr>`).join('')}
+                </tbody>
+            </table>
+        `;
+
+        alertHtml = `
+            <div class="lo-detail-section">
+                <div class="lo-detail-section-title">告警事件</div>
+                ${qpsChartHtml}
+                ${limitTable}
+                ${warnTable}
+                ${abnTable}
+                ${cfgTable}
+            </div>
+        `;
+    }
+
+    bodyEl.innerHTML = baseHtml + upstreamHtml + downstreamHtml + alertHtml;
+
+    // 事件代理：编辑跳转到限流器页
+    if (!bodyEl._loConfigBound) {
+        bodyEl.addEventListener('click', (e) => {
+            const a = e.target.closest('.lo-config-action');
+            if (a) {
+                e.preventDefault();
+                closeLoNodeDrawer();
+                if (typeof switchPage === 'function') switchPage('limiter');
+            }
+        });
+        bodyEl._loConfigBound = true;
+    }
 
     drawer.classList.remove('hidden');
 }
+
+// 解析 threshold 数值（支持 "15" / "5k" / "500" / "2k" / "15.0"）
+function parseLoThresholdNumber(t) {
+    if (!t) return 0;
+    const s = String(t).trim();
+    const m = s.match(/^([\d.]+)\s*([kKmM]?)/);
+    if (!m) return 0;
+    let n = parseFloat(m[1]);
+    if (m[2] === 'k' || m[2] === 'K') n *= 1000;
+    if (m[2] === 'm' || m[2] === 'M') n *= 1000000;
+    return n;
+}
+
+function parseLoThresholdWaterText(t) {
+    const v = parseLoThresholdNumber(t) * 0.8;
+    if (v >= 1000) return (v / 1000).toFixed(1) + 'k req/s';
+    return v.toFixed(1) + ' req/s';
+}
+
+// 构建 QPS 趋势图 SVG（含点击放大 wrap）
+function buildLoNodeQpsChart(node) {
+    const W = 560, H = 220;
+    const padL = 44, padR = 24, padT = 16, padB = 28;
+    const innerW = W - padL - padR;
+    const innerH = H - padT - padB;
+
+    const limit = parseLoThresholdNumber(node.threshold) || 100;
+    const water = limit * 0.8;
+    const peak = parseLoThresholdNumber(node.peakQps) || limit * 1.1;
+    const yMax = Math.max(limit * 1.4, peak * 1.05);
+
+    // 7 个 tick 时间
+    const now = new Date();
+    const ticks = [];
+    for (let i = 6; i >= 0; i--) {
+        const t = new Date(now.getTime() - i * 5 * 60 * 1000);
+        const hh = String(t.getHours()).padStart(2, '0');
+        const mm = String(t.getMinutes()).padStart(2, '0');
+        ticks.push(`${hh}:${mm}`);
+    }
+
+    // 折线点
+    const N = 28;
+    const pts = [];
+    for (let i = 0; i < N; i++) {
+        const ratio = i / (N - 1);
+        // 一个起伏的曲线
+        const base = peak * 0.45 + Math.sin(ratio * Math.PI * 2) * peak * 0.18 + Math.cos(ratio * Math.PI * 3) * peak * 0.08;
+        // error 节点峰值
+        let v = base;
+        if (node.status === 'error' && i > N * 0.55 && i < N * 0.78) v = peak * (0.95 + Math.sin((i - N * 0.55) * 0.6) * 0.05);
+        if (v < 0) v = 0;
+        const x = padL + (i / (N - 1)) * innerW;
+        const y = padT + innerH - (v / yMax) * innerH;
+        pts.push({ x, y, v });
+    }
+    const polyline = pts.map(p => `${p.x.toFixed(1)},${p.y.toFixed(1)}`).join(' ');
+    const areaD = `M ${padL} ${padT + innerH} L ${pts.map(p => `${p.x.toFixed(1)} ${p.y.toFixed(1)}`).join(' L ')} L ${padL + innerW} ${padT + innerH} Z`;
+
+    // Y 轴 5 个 tick
+    let yAxisHtml = '';
+    for (let i = 0; i < 5; i++) {
+        const ratio = i / 4;
+        const yy = padT + innerH - ratio * innerH;
+        const val = (yMax * ratio);
+        const valLabel = val >= 1000 ? (val / 1000).toFixed(1) + 'k' : val.toFixed(0);
+        yAxisHtml += `<line x1="${padL}" y1="${yy}" x2="${padL + innerW}" y2="${yy}" stroke="#f0f0f0" stroke-width="1"/>`;
+        yAxisHtml += `<text x="${padL - 6}" y="${yy + 3}" text-anchor="end" font-size="10" fill="#999">${valLabel}</text>`;
+    }
+
+    // X 轴 tick
+    let xAxisHtml = '';
+    ticks.forEach((label, i) => {
+        const xx = padL + (i / (ticks.length - 1)) * innerW;
+        xAxisHtml += `<text x="${xx}" y="${padT + innerH + 16}" text-anchor="middle" font-size="10" fill="#999">${label}</text>`;
+    });
+
+    // 限流值（红线，y 上方）
+    const yLimit = padT + innerH - (limit / yMax) * innerH;
+    // 限流水位（橙线，y 下方）
+    const yWater = padT + innerH - (water / yMax) * innerH;
+    const limitLine = `
+        <line x1="${padL}" y1="${yLimit}" x2="${padL + innerW}" y2="${yLimit}" stroke="#ff4d4f" stroke-width="1.2" stroke-dasharray="6 4"/>
+        <text x="${padL + innerW - 4}" y="${yLimit - 6}" text-anchor="end" font-size="11" fill="#ff4d4f">限流值 ${limit >= 1000 ? (limit / 1000).toFixed(1) + 'k' : limit}</text>
+    `;
+    const waterLine = `
+        <line x1="${padL}" y1="${yWater}" x2="${padL + innerW}" y2="${yWater}" stroke="#fa8c16" stroke-width="1.2" stroke-dasharray="6 4"/>
+        <text x="${padL + innerW - 4}" y="${yWater + 14}" text-anchor="end" font-size="11" fill="#fa8c16">限流水位 ${water >= 1000 ? (water / 1000).toFixed(1) + 'k' : water.toFixed(0)}</text>
+    `;
+
+    // error 节点：3 个紫色异常流量圆点（峰值附近）
+    let abnPoints = '';
+    if (node.status === 'error') {
+        let peakIdx = 0; let peakV = -1;
+        pts.forEach((p, i) => { if (p.v > peakV) { peakV = p.v; peakIdx = i; } });
+        const idxList = [Math.max(0, peakIdx - 2), peakIdx, Math.min(pts.length - 1, peakIdx + 2)];
+        abnPoints = idxList.map(i => `<circle cx="${pts[i].x}" cy="${pts[i].y}" r="4" fill="#722ed1" stroke="#fff" stroke-width="1.5"/>`).join('');
+    }
+
+    const svg = `
+<svg class="lo-qps-chart" viewBox="0 0 ${W} ${H}" xmlns="http://www.w3.org/2000/svg">
+    <defs>
+        <linearGradient id="loQpsArea" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stop-color="#13a8a8" stop-opacity="0.25"/>
+            <stop offset="100%" stop-color="#13a8a8" stop-opacity="0.02"/>
+        </linearGradient>
+    </defs>
+    ${yAxisHtml}
+    ${xAxisHtml}
+    <path d="${areaD}" fill="url(#loQpsArea)" stroke="none"/>
+    <polyline points="${polyline}" fill="none" stroke="#1890ff" stroke-width="1.6"/>
+    ${waterLine}
+    ${limitLine}
+    ${abnPoints}
+</svg>
+    `;
+
+    return `
+        <div class="lo-qps-chart-wrap" onclick="openLoImageLightbox(this.querySelector('svg').outerHTML)">
+            <div class="lo-qps-chart-header">
+                <span class="lo-qps-chart-title">QPS</span>
+                <span class="lo-qps-chart-legend">
+                    <span class="lo-qps-legend-item"><span class="lo-qps-legend-dash" style="background:#fa8c16"></span>限流水位</span>
+                    <span class="lo-qps-legend-item"><span class="lo-qps-legend-dash" style="background:#ff4d4f"></span>限流值</span>
+                    <span class="lo-qps-legend-item"><span class="lo-qps-legend-dot" style="background:#722ed1"></span>异常流量</span>
+                </span>
+            </div>
+            ${svg}
+        </div>
+    `;
+}
+
+// Lightbox
+function openLoImageLightbox(svgHtml) {
+    const lb = document.getElementById('loImageLightbox');
+    const content = document.getElementById('loImageLightboxContent');
+    if (!lb || !content) return;
+    content.innerHTML = svgHtml;
+    // 强制放大版 svg 占满容器
+    const innerSvg = content.querySelector('svg');
+    if (innerSvg) {
+        innerSvg.removeAttribute('width');
+        innerSvg.removeAttribute('height');
+        innerSvg.style.width = '100%';
+        innerSvg.style.height = 'auto';
+    }
+    lb.classList.remove('hidden');
+}
+
+function closeLoImageLightbox() {
+    const lb = document.getElementById('loImageLightbox');
+    if (lb) lb.classList.add('hidden');
+    const content = document.getElementById('loImageLightboxContent');
+    if (content) content.innerHTML = '';
+}
+
+// 限流详情 drawer（保留 DOM，提供基础打开/关闭函数；当前 lo-config-action 已直接跳转限流器页）
+function openLoLimitDetailDrawer(psm) {
+    const node = findLoNode(psm);
+    if (!node) return;
+    const body = document.getElementById('loLimitDetailDrawerBody');
+    const drawer = document.getElementById('loLimitDetailDrawer');
+    if (!body || !drawer) return;
+    const numericVal = parseLoThresholdNumber(node.threshold);
+    body.innerHTML = `
+        <div class="lo-detail-section">
+            <div class="lo-detail-section-title">基本信息</div>
+            <div class="lo-base-grid">
+                <div class="lo-base-item"><span class="lo-base-label">PSM</span><span class="lo-base-value">${node.psm}</span></div>
+                <div class="lo-base-item"><span class="lo-base-label">集群</span><span class="lo-base-value">${node.cluster}</span></div>
+                <div class="lo-base-item"><span class="lo-base-label">VDC</span><span class="lo-base-value">${node.vdc}</span></div>
+                <div class="lo-base-item"><span class="lo-base-label">调用方法</span><span class="lo-base-value">${node.invokeMethod}</span></div>
+            </div>
+        </div>
+        <div class="lo-detail-section">
+            <div class="lo-detail-section-title">限流值</div>
+            <div class="lo-limit-edit-row">
+                <span class="lo-limit-edit-label">限流值</span>
+                <div class="lo-limit-edit-input-wrap">
+                    <input type="number" class="form-control lo-limit-edit-input" id="loLimitDetailValue" value="${numericVal}" min="0">
+                    <span class="lo-limit-edit-unit">req/s</span>
+                </div>
+            </div>
+            <div class="lo-limit-edit-tip">修改后将立即生效</div>
+        </div>
+    `;
+    drawer.dataset.psm = node.psm;
+    drawer.classList.remove('hidden');
+}
+
+function closeLoLimitDetailDrawer() {
+    const drawer = document.getElementById('loLimitDetailDrawer');
+    if (drawer) drawer.classList.add('hidden');
+}
+
+function saveLoLimitDetail() {
+    const drawer = document.getElementById('loLimitDetailDrawer');
+    if (!drawer) return;
+    const psm = drawer.dataset.psm;
+    const node = findLoNode(psm);
+    const inp = document.getElementById('loLimitDetailValue');
+    if (node && inp) {
+        const v = parseFloat(inp.value);
+        if (!isNaN(v) && v >= 0) {
+            // 保留单位（若原来是 k/K）
+            const m = String(node.threshold || '').match(/[kKmM]/);
+            if (m) {
+                node.threshold = (v >= 1000 ? (v / 1000).toFixed(1) + 'k' : String(v));
+            } else {
+                node.threshold = String(v);
+            }
+        }
+    }
+    closeLoLimitDetailDrawer();
+    if (psm) openLoNodeDrawer(psm);
+}
+
+
 
 function closeLoNodeDrawer() {
     const drawer = document.getElementById('loNodeDrawer');
     if (drawer) drawer.classList.add('hidden');
-}
-
-// === 边详情抽屉 ===
-// 调用对元数据
-function getLoEdgeMeta(from, to) {
-    const fromNode = findLoNode(from);
-    const toNode = findLoNode(to);
-    if (!fromNode || !toNode) return null;
-    // 强弱依赖：error/warn 视为强依赖示例
-    const isStrong = toNode.status === 'error' || toNode.priority === 'P0';
-    return {
-        fromSvc: fromNode.psm,
-        fromCluster: fromNode.cluster || '-',
-        fromApi: fromNode.invokeMethod || '-',
-        toSvc: toNode.psm,
-        toCluster: toNode.cluster || '-',
-        toApi: toNode.invokeMethod || '-',
-        depType: isStrong ? '强依赖' : '弱依赖',
-        depColor: isStrong ? 'strong' : 'weak',
-        trafficRatio: toNode.trafficRatio || '-',
-        latestTime: (toNode.limitEvent && toNode.limitEvent.time) ||
-                    (toNode.errorEvent && toNode.errorEvent.time) ||
-                    (toNode.warnEvent && toNode.warnEvent.time) ||
-                    '2026-05-20 12:28:35',
-        sampleUrl: '#'
-    };
-}
-
-function openLoEdgeDrawer(from, to) {
-    const meta = getLoEdgeMeta(from, to);
-    if (!meta) return;
-    const bodyEl = document.getElementById('loEdgeDrawerBody');
-    const drawer = document.getElementById('loEdgeDrawer');
-    if (!bodyEl || !drawer) return;
-
-    const depBadgeCls = meta.depColor === 'strong' ? 'lo-dep-strong' : 'lo-dep-weak';
-    bodyEl.innerHTML = `
-        <div class="lo-detail-section">
-            <div class="lo-event-content">
-                <div class="lo-event-row"><span class="lo-event-key">调用方服务</span><span class="lo-event-val">${meta.fromSvc}</span></div>
-                <div class="lo-event-row"><span class="lo-event-key">调用方集群</span><span class="lo-event-val">${meta.fromCluster}</span></div>
-                <div class="lo-event-row"><span class="lo-event-key">调用方接口</span><span class="lo-event-val">${meta.fromApi}</span></div>
-                <div class="lo-event-row"><span class="lo-event-key">被调用方服务</span><span class="lo-event-val">${meta.toSvc}</span></div>
-                <div class="lo-event-row"><span class="lo-event-key">被调用方集群</span><span class="lo-event-val">${meta.toCluster}</span></div>
-                <div class="lo-event-row"><span class="lo-event-key">被调用方接口</span><span class="lo-event-val">${meta.toApi}</span></div>
-                <div class="lo-event-row"><span class="lo-event-key">强弱依赖</span><span class="lo-event-val"><span class="lo-dep-tag ${depBadgeCls}">${meta.depType}</span></span></div>
-                <div class="lo-event-row"><span class="lo-event-key">流量比例</span><span class="lo-event-val">${meta.trafficRatio}</span></div>
-            </div>
-        </div>
-    `;
-    drawer.classList.remove('hidden');
-}
-
-function closeLoEdgeDrawer() {
-    const drawer = document.getElementById('loEdgeDrawer');
-    if (drawer) drawer.classList.add('hidden');
-    clearLoEdgeHighlight();
-}
-
-function highlightLoEdge(from, to) {
-    clearLoEdgeHighlight();
-    const svg = document.getElementById('loTopologySvg');
-    if (!svg) return;
-    svg.querySelectorAll('.lo-edge').forEach(p => {
-        if (p.getAttribute('data-from') === from && p.getAttribute('data-to') === to) {
-            p.classList.add('lo-edge-active');
-            p.setAttribute('stroke', '#ff4d4f');
-            p.setAttribute('stroke-width', '2.5');
-            p.setAttribute('opacity', '1');
-        }
-    });
-}
-
-function clearLoEdgeHighlight() {
-    const svg = document.getElementById('loTopologySvg');
-    if (!svg) return;
-    svg.querySelectorAll('.lo-edge-active').forEach(p => {
-        p.classList.remove('lo-edge-active');
-        // 还原原色
-        const to = p.getAttribute('data-to');
-        const node = findLoNode(to);
-        if (node) {
-            const stroke = node.status === 'error' ? '#ff4d4f' : (node.status === 'warn' ? '#fa8c16' : '#ffa39e');
-            p.setAttribute('stroke', stroke);
-        }
-        p.setAttribute('stroke-width', '1.5');
-        p.setAttribute('opacity', '0.85');
-    });
 }
 
 // History Config Drawer
@@ -1724,7 +1584,7 @@ const historyConfigs = [
         _values: {
             loEntry: 'toutiao.ms.argos', loVDC: 'sg-central', loCluster: 'default',
             loTimeRange: '近 7 天', loDepType: '弱依赖', loPriority: 'P1', loSvcType: 'RPC',
-            loUpLevel: '3', loDownLevel: '3', granularity: 'psm,idc'
+            loUpLevel: '3', loDownLevel: '3', granularity: 'psm,interface'
         }
     },
     {
@@ -1737,7 +1597,7 @@ const historyConfigs = [
         _values: {
             loEntry: 'oec.operation.product_group', loVDC: 'lf', loCluster: 'gray',
             loTimeRange: '近 30mins', loDepType: '', loPriority: 'P2', loSvcType: '',
-            loUpLevel: '1', loDownLevel: '1', granularity: 'psm,cluster'
+            loUpLevel: '1', loDownLevel: '1', granularity: 'psm'
         }
     }
 ];
@@ -1784,7 +1644,6 @@ function renderHistoryConfigList() {
             ${isBulk ? '' : `
             <div class="hc-item-actions">
                 <button class="hc-item-action-btn" data-act="apply" data-id="${c.id}">应用</button>
-                <button class="hc-item-action-btn" data-act="export" data-id="${c.id}">导出</button>
                 <button class="hc-item-action-btn danger" data-act="delete" data-id="${c.id}">删除</button>
             </div>
             `}
@@ -1802,25 +1661,18 @@ function renderHistoryConfigList() {
             if (!cfg) return;
             if (act === 'apply') {
                 applyHistoryConfig(cfg);
-            } else if (act === 'export') {
-                showToast(`已导出配置「${cfg.name}」`);
             } else if (act === 'delete') {
                 if (cfg.type === 'preset') {
                     showToast('预置配置不支持删除');
                     return;
                 }
-                openHcConfirm({
-                    title: '确认删除该历史配置？',
-                    message: '删除后不可恢复，请确认是否继续删除。',
-                    onOk: () => {
-                        const idx = historyConfigs.findIndex(c => c.id === id);
-                        if (idx !== -1) {
-                            historyConfigs.splice(idx, 1);
-                            renderHistoryConfigList();
-                            showToast(`已删除配置「${cfg.name}」`);
-                        }
-                    }
-                });
+                if (!confirm(`确定要删除配置「${cfg.name}」吗？`)) return;
+                const idx = historyConfigs.findIndex(c => c.id === id);
+                if (idx !== -1) {
+                    historyConfigs.splice(idx, 1);
+                    renderHistoryConfigList();
+                    showToast(`已删除配置「${cfg.name}」`);
+                }
             }
         });
     });
@@ -1909,68 +1761,18 @@ function bindHcBulkHandlers() {
             showToast('请先选择要删除的配置');
             return;
         }
-        openHcConfirm({
-            title: '确认删除所选历史配置？',
-            message: '删除后不可恢复，请确认是否继续删除已选中的历史配置。',
-            onOk: () => {
-                const removable = selected.filter(c => c.type !== 'preset');
-                const blocked = selected.length - removable.length;
-                const removableIds = new Set(removable.map(c => c.id));
-                for (let i = historyConfigs.length - 1; i >= 0; i--) {
-                    if (removableIds.has(historyConfigs[i].id)) historyConfigs.splice(i, 1);
-                }
-                exitHcBulkMode();
-                const msg = blocked > 0
-                    ? `已删除 ${removable.length} 项，其中 ${blocked} 项预置配置不支持删除`
-                    : `已删除 ${removable.length} 项配置`;
-                showToast(msg);
-            }
-        });
-    });
-    $on2('hcBulkExport', 'click', () => {
-        const selected = getSelectedHcConfigs();
-        if (selected.length === 0) {
-            showToast('请先选择要导出的配置');
-            return;
+        if (!confirm(`确定要删除选中的 ${selected.length} 项配置吗？此操作不可恢复。`)) return;
+        const removable = selected.filter(c => c.type !== 'preset');
+        const blocked = selected.length - removable.length;
+        const removableIds = new Set(removable.map(c => c.id));
+        for (let i = historyConfigs.length - 1; i >= 0; i--) {
+            if (removableIds.has(historyConfigs[i].id)) historyConfigs.splice(i, 1);
         }
-        const names = selected.map(c => c.name).join('、');
         exitHcBulkMode();
-        showToast(`已导出 ${selected.length} 项配置：${names}`);
-    });
-}
-
-/* ============= 历史配置：确认弹窗 ============= */
-const hcConfirmState = { onOk: null };
-
-function openHcConfirm({ title, message, onOk }) {
-    const modal = document.getElementById('hcConfirmModal');
-    if (!modal) return;
-    const t = document.getElementById('hcConfirmTitle');
-    const m = document.getElementById('hcConfirmMessage');
-    if (t && title) t.textContent = title;
-    if (m && message) m.textContent = message;
-    hcConfirmState.onOk = onOk || null;
-    modal.classList.remove('hidden');
-}
-
-function closeHcConfirm() {
-    const modal = document.getElementById('hcConfirmModal');
-    if (modal) modal.classList.add('hidden');
-    hcConfirmState.onOk = null;
-}
-
-function bindHcConfirmHandlers() {
-    const $on2 = (id, evt, fn) => {
-        const el = document.getElementById(id);
-        if (el) el.addEventListener(evt, fn);
-    };
-    $on2('btnHcConfirmCancel', 'click', closeHcConfirm);
-    $on2('hcConfirmClose', 'click', closeHcConfirm);
-    $on2('hcConfirmModalMask', 'click', closeHcConfirm);
-    $on2('btnHcConfirmOk', 'click', () => {
-        const cb = hcConfirmState.onOk;
-        closeHcConfirm();
-        if (typeof cb === 'function') cb();
+        const msg = blocked > 0
+            ? `已删除 ${removable.length} 项，其中 ${blocked} 项预置配置不支持删除`
+            : `已删除 ${removable.length} 项配置`;
+        showToast(msg);
     });
 }
 
@@ -1990,16 +1792,10 @@ function applyHistoryConfig(cfg) {
     loConfigState.lastGenerated = null;
     loConfigState.firstFilled = !isLoFilterEmpty(v);
     loConfigState.dirty = false;
-    if (loConfigState.firstFilled) {
-        showLoStatus('已配置筛选条件，待生成观测结果');
-    } else {
-        hideLoStatus();
-    }
     // 应用配置后必须重置渲染状态：旧拓扑结果不再代表当前筛选项
     loResultGenerated = false;
     renderLoTopology();
     renderLoList();
-    updateLoGenerateDot();
     persistLoFilterDraft();
     closeHistoryConfigDrawer();
     showToast(`已应用配置「${cfg.name}」，请点击「生成结果」`);
@@ -2033,59 +1829,71 @@ function isLoFilterEmpty(values) {
     return !values.loEntry && !values.loVDC && !values.loCluster && !values.granularity;
 }
 
-function showLoStatus(text, type) {
-    const bar = document.getElementById('loStatusBar');
-    const t = document.getElementById('loStatusText');
-    if (!bar || !t) return;
-    t.textContent = text;
-    bar.classList.remove('hidden', 'lo-status-success');
-    if (type === 'success') bar.classList.add('lo-status-success');
+function showLoStatus() {
+    // 已移除顶部状态提示栏
 }
 
 function hideLoStatus() {
-    const bar = document.getElementById('loStatusBar');
-    if (bar) bar.classList.add('hidden');
+    // 已移除顶部状态提示栏
 }
 
 function updateLoGenerateDot() {
-    const dot = document.getElementById('loGenerateDot');
-    if (!dot) return;
-    if (loConfigState.dirty || loConfigState.firstFilled) {
-        dot.classList.remove('hidden');
-    } else {
-        dot.classList.add('hidden');
-    }
+    // 已移除「生成结果」红点机制
 }
 
 function persistLoFilterDraft() {
-    // 规则：每次刷新均为空态，因此不再向 localStorage 持久化草稿
-    // 函数保留为空实现，避免大量调用点改动
+    try {
+        const values = collectLoFilterValues();
+        localStorage.setItem(LO_DRAFT_KEY, JSON.stringify(values));
+    } catch (e) { /* ignore */ }
 }
 
 function restoreLoFilterDraft() {
-    // 规则：每次刷新/重新登录均为空态（筛选项与结果均为空）
-    // 主动清除所有持久化草稿，避免任何残留回填
     try {
+        // 清理旧版本草稿，确保首次升级到本版本时不会回写旧默认值
         localStorage.removeItem('lo_filter_draft');
         localStorage.removeItem('lo_saved_config');
-        localStorage.removeItem(LO_DRAFT_KEY);
-        localStorage.removeItem(LO_SAVED_KEY);
+        const raw = localStorage.getItem(LO_DRAFT_KEY);
+        // 首次登录无任何草稿 -> 保持筛选项与展示结果均为空
+        if (!raw) {
+            loResultGenerated = false;
+            loConfigState.lastGenerated = null;
+            loConfigState.firstFilled = false;
+            loConfigState.dirty = false;
+            hideLoStatus();
+            updateLoGenerateDot();
+            return;
+        }
+        const values = JSON.parse(raw);
+        // 草稿存在但所有字段都为空 -> 等同首次登录的空状态
+        if (isLoFilterEmpty(values)) {
+            loResultGenerated = false;
+            loConfigState.lastGenerated = null;
+            loConfigState.firstFilled = false;
+            loConfigState.dirty = false;
+            hideLoStatus();
+            updateLoGenerateDot();
+            return;
+        }
+        Object.keys(values).forEach(k => {
+            if (k === 'granularity') {
+                const checked = (values[k] || '').split(',').filter(Boolean);
+                document.querySelectorAll('input[name="loGran"]').forEach(c => {
+                    c.checked = checked.includes(c.value);
+                });
+            } else {
+                const el = document.getElementById(k);
+                if (el) el.value = values[k] || '';
+            }
+        });
+        // 有草稿但未生成结果：标记为首次填写状态，保留红点提示用户去生成
+        loResultGenerated = false;
+        loConfigState.lastGenerated = null;
+        loConfigState.firstFilled = true;
+        loConfigState.dirty = false;
+        showLoStatus('已配置筛选条件，待生成观测结果');
+        updateLoGenerateDot();
     } catch (e) { /* ignore */ }
-    // 显式清空 DOM（兜底，防止浏览器缓存了 input value）
-    ['loEntry', 'loVDC', 'loCluster', 'loTimeRange', 'loDepType', 'loPriority', 'loSvcType', 'loUpLevel', 'loDownLevel'].forEach(k => {
-        const el = document.getElementById(k);
-        if (el) el.value = '';
-    });
-    document.querySelectorAll('input[name="loGran"]').forEach(c => { c.checked = false; });
-    // 清空状态机
-    loResultGenerated = false;
-    loConfigState.lastGenerated = null;
-    loConfigState.firstFilled = false;
-    loConfigState.dirty = false;
-    loConfigState.savedConfigId = null;
-    loConfigState.lastSaved = null;
-    hideLoStatus();
-    updateLoGenerateDot();
 }
 
 function initLoFilterWatch() {
@@ -2217,7 +2025,9 @@ function updateLoLocateDropdown() {
         return;
     }
     dropdown.innerHTML = items.map(n => {
+        const tag = inferLoNodeTagType(n.psm);
         return `<div class="lo-locate-item" data-psm="${n.psm}">
+            <span class="lo-locate-item-tag">${tag}</span>
             <span class="lo-locate-item-name">${n.psm}::::::</span>
         </div>`;
     }).join('');

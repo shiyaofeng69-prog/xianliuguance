@@ -194,12 +194,6 @@
 
                     <!-- Link Observation Page -->
                     <div id="linkObservationPage" class="page-content hidden">
-                        <!-- Status Bar -->
-                        <div id="loStatusBar" class="lo-status-bar hidden">
-                            <span class="lo-status-icon">ⓘ</span>
-                            <span class="lo-status-text" id="loStatusText"></span>
-                            <button class="lo-status-close" id="loStatusClose" title="关闭">×</button>
-                        </div>
                         <!-- Filter Card -->
                         <div class="lo-filter-card">
                             <!-- Row 1: 必填基础信息（链路入口 / VDC / 集群 / 时间范围） -->
@@ -288,15 +282,10 @@
                                     <label class="lo-field-label lo-field-label-inline"><span class="lo-required">*</span>观测粒度：</label>
                                     <label class="lo-check"><input type="checkbox" name="loGran" value="psm"> psm</label>
                                     <label class="lo-check"><input type="checkbox" name="loGran" value="interface"> 接口</label>
-                                    <label class="lo-check"><input type="checkbox" name="loGran" value="idc"> 机房</label>
-                                    <label class="lo-check"><input type="checkbox" name="loGran" value="cluster"> 集群</label>
                                     <span class="lo-tip-text">用于配置链路结果展示的粒度</span>
                                 </div>
                                 <div class="lo-row-actions">
-                                    <span class="lo-btn-with-dot">
-                                        <button class="btn btn-success" id="loGenerateBtn">生成结果</button>
-                                        <span class="lo-btn-reddot hidden" id="loGenerateDot"></span>
-                                    </span>
+                                    <button class="btn btn-success" id="loGenerateBtn">生成结果</button>
                                 </div>
                             </div>
                         </div>
@@ -313,25 +302,17 @@
 
                             <!-- Topology View -->
                             <div class="lo-canvas" id="loCanvas">
-                                <div class="lo-topo-filter">
-                                    <div class="lo-topo-filter-item">
-                                        <span class="lo-topo-filter-label">QPS</span>
-                                        <span class="lo-topo-filter-op-static">≥</span>
-                                        <input type="text" class="form-control small lo-topo-filter-input" placeholder="请输入数值" id="loTopoQpsVal">
-                                    </div>
-                                    <div class="lo-topo-filter-item">
-                                        <span class="lo-topo-filter-label">CPU 利用率</span>
-                                        <span class="lo-topo-filter-op-static">≥</span>
-                                        <input type="text" class="form-control small lo-topo-filter-input" placeholder="请输入数值" id="loTopoCpuVal">
-                                        <span class="lo-topo-filter-suffix">%</span>
-                                    </div>
-                                    <button class="btn btn-default small lo-topo-filter-reset" id="loTopoFilterReset" title="重置">↻</button>
-                                    <button class="btn btn-success small" id="loTopoFilterSearch">搜索</button>
-                                </div>
                                 <div class="lo-canvas-legend">
-                                    <span class="lo-legend-item"><span class="lo-legend-dot lo-dot-normal"></span>正常</span>
-                                    <span class="lo-legend-item"><span class="lo-legend-dot lo-dot-error"></span>限流/异常</span>
-                                    <span class="lo-legend-item"><span class="lo-legend-dot lo-dot-warn"></span>预警</span>
+                                    <span class="lo-legend-item"><span class="lo-legend-dot lo-dot-normal"></span>正常 <span class="lo-legend-count" id="loLegendCntNormal">0</span></span>
+                                    <span class="lo-legend-item"><span class="lo-legend-dot lo-dot-error"></span>限流 <span class="lo-legend-count" id="loLegendCntError">0</span></span>
+                                    <span class="lo-legend-item"><span class="lo-legend-dot lo-dot-warn"></span>预警 <span class="lo-legend-count" id="loLegendCntWarn">0</span></span>
+                                    <span class="lo-legend-item"><span class="lo-legend-dot lo-dot-abnormal"></span>异常流量 <span class="lo-legend-count" id="loLegendCntAbnormal">0</span></span>
+                                </div>
+                                <div class="lo-canvas-alert-filter hidden" id="loAlertFilterPanel">
+                                    <span class="lo-alert-chip active" data-filter="all">全部</span>
+                                    <span class="lo-alert-chip lo-alert-chip-error" data-filter="error">限流触发</span>
+                                    <span class="lo-alert-chip lo-alert-chip-warn" data-filter="warn">预警</span>
+                                    <span class="lo-alert-chip lo-alert-chip-abnormal" data-filter="abnormal">异常流量</span>
                                 </div>
                                 <div class="lo-canvas-tools">
                                     <button class="lo-canvas-btn" id="loCanvasLocate" title="节点定位" data-tip="节点定位">
@@ -363,38 +344,29 @@
 
                             <!-- List View -->
                             <div class="lo-list-view hidden" id="loListView">
-                                <div class="lo-list-filter">
-                                    <input type="text" class="form-control small lo-list-input" placeholder="调用方服务 请输入" id="loListCallerSvc">
-                                    <input type="text" class="form-control small lo-list-input" placeholder="调用方集群 请输入" id="loListCallerCluster">
-                                    <input type="text" class="form-control small lo-list-input" placeholder="被调用方服务 请输入" id="loListCalleeSvc">
-                                    <input type="text" class="form-control small lo-list-input" placeholder="被调用方集群 请输入" id="loListCalleeCluster">
-                                    <input type="text" class="form-control small lo-list-input" placeholder="被调用方方法 请输入" id="loListCalleeMethod">
-                                    <button class="btn btn-default small lo-list-reset" id="loListReset" title="重置">↻</button>
-                                    <button class="btn btn-success small" id="loListSearchBtn">搜索</button>
-                                    <div class="lo-list-export-wrap">
-                                        <button class="btn btn-default small lo-list-export-btn" id="loListExportBtn">导出 ▾</button>
-                                        <div class="lo-list-export-menu hidden" id="loListExportMenu">
-                                            <div class="lo-list-export-item" data-type="feishu">导出为飞书表格</div>
-                                            <div class="lo-list-export-item" data-type="excel">导出为 Excel 表格</div>
-                                        </div>
-                                    </div>
+                                <div class="list-filter">
+                                    <input type="text" class="form-control small" placeholder="搜索 PSM" id="loListSearch">
+                                    <select class="form-control small" id="loListStatus">
+                                        <option value="all">全部状态</option>
+                                        <option value="normal">正常</option>
+                                        <option value="warn">预警</option>
+                                        <option value="error">异常</option>
+                                    </select>
+                                    <button class="btn btn-default small" id="loListExport">导出</button>
                                 </div>
                                 <div class="table-card">
                                     <table class="data-table lo-list-table">
                                         <thead>
                                             <tr>
-                                                <th>调用方服务</th>
-                                                <th>调用方集群</th>
-                                                <th>被调用方服务</th>
-                                                <th>被调用方集群</th>
-                                                <th>被调用方方法</th>
-                                                <th>限流值</th>
-                                                <th>限流类型</th>
-                                                <th>限流模式</th>
-                                                <th>流量 Max</th>
-                                                <th>流量 Avg</th>
-                                                <th>流量 P99</th>
+                                                <th>PSM 名称</th>
+                                                <th>VDC / 集群 / Method</th>
+                                                <th>当前限流配置</th>
+                                                <th>调用方法</th>
+                                                <th>QPS（峰值/P99/阈值水位）</th>
                                                 <th>CPU 利用率</th>
+                                                <th>状态</th>
+                                                <th>异常详情</th>
+                                                <th>操作</th>
                                             </tr>
                                         </thead>
                                         <tbody id="loListTableBody"></tbody>
@@ -755,24 +727,6 @@
         </div>
     </div>
 
-    <!-- History Config Confirm Modal -->
-    <div id="hcConfirmModal" class="modal hc-confirm-modal hidden">
-        <div class="modal-mask" id="hcConfirmModalMask"></div>
-        <div class="modal-content small">
-            <div class="modal-header">
-                <h2 class="modal-title" id="hcConfirmTitle">确认删除该历史配置？</h2>
-                <button class="modal-close" id="hcConfirmClose">×</button>
-            </div>
-            <div class="modal-body">
-                <p id="hcConfirmMessage">删除后不可恢复，请确认是否继续删除。</p>
-            </div>
-            <div class="modal-footer">
-                <button class="btn btn-default" id="btnHcConfirmCancel">取消</button>
-                <button class="btn btn-success" id="btnHcConfirmOk">确认删除</button>
-            </div>
-        </div>
-    </div>
-
     <!-- History Config Drawer -->
     <div id="historyConfigDrawer" class="drawer hidden">
         <div class="drawer-mask" id="historyConfigMask"></div>
@@ -780,7 +734,6 @@
             <div class="drawer-header hc-drawer-header">
                 <h2 class="drawer-title">历史配置</h2>
                 <div class="hc-header-actions">
-                    <button class="btn btn-success btn-sm" id="btnImportConfig">导入配置</button>
                     <button class="btn btn-default btn-sm" id="btnBulkOp">批量操作</button>
                     <button class="drawer-close" id="historyConfigClose">×</button>
                 </div>
@@ -793,7 +746,6 @@
                 <span class="hc-selected-count">已选 <span id="hcSelectedCount">0</span> 项</span>
                 <div class="hc-bulk-bar-right">
                     <button class="btn btn-danger btn-sm" id="hcBulkDelete">批量删除</button>
-                    <button class="btn btn-success btn-sm" id="hcBulkExport">批量导出</button>
                     <button class="btn btn-default btn-sm" id="hcBulkCancel">退出批量</button>
                 </div>
             </div>
@@ -831,6 +783,29 @@
                 <!-- 边详情内容由 JS 渲染 -->
             </div>
         </div>
+    </div>
+
+    <!-- Link Observation Limit Detail Drawer -->
+    <div id="loLimitDetailDrawer" class="drawer hidden">
+        <div class="drawer-mask" id="loLimitDetailDrawerMask"></div>
+        <div class="drawer-content lo-limit-detail-drawer">
+            <div class="drawer-header">
+                <h2 class="drawer-title">限流详情</h2>
+                <button class="drawer-close" id="loLimitDetailDrawerClose">×</button>
+            </div>
+            <div class="drawer-body" id="loLimitDetailDrawerBody"></div>
+            <div class="drawer-footer">
+                <button class="btn btn-default" id="loLimitDetailCancel">取消</button>
+                <button class="btn btn-success" id="loLimitDetailSave">保存</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Link Observation Image Lightbox -->
+    <div id="loImageLightbox" class="lo-image-lightbox hidden">
+        <div class="lo-image-lightbox-mask"></div>
+        <button class="lo-image-lightbox-close" id="loImageLightboxClose" aria-label="关闭">×</button>
+        <div class="lo-image-lightbox-content" id="loImageLightboxContent"></div>
     </div>
 
     <script src="script.js"></script>
