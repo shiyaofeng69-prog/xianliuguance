@@ -125,6 +125,8 @@ function switchPage(pageName) {
         document.getElementById('pageDesc').textContent = '';
         if (pageHeaderActions) pageHeaderActions.classList.add('show');
         renderObservationTable();
+        // 每次进入链路观测页时强制重置为空态
+        if (typeof restoreLoFilterDraft === 'function') restoreLoFilterDraft();
     }
 }
 
@@ -917,6 +919,9 @@ const LO_STATUS_COLOR = {
     error:  { rect: '#fff1f0', stroke: '#ff4d4f', dot: '#ff4d4f', text: '#1d1f23', isLight: true }
 };
 
+// 是否已生成观测结果（初始登录为 false，拓扑/列表展示空态）
+let loResultGenerated = false;
+
 // 拓扑视图交互状态
 const loCanvasState = {
     zoom: 1,
@@ -947,6 +952,25 @@ function renderLoTopology() {
     const baseW = svg.clientWidth || 900;
     const w = baseW;
     const h = 460;
+    // 未生成结果时显示空态提示
+    if (!loResultGenerated) {
+        svg.setAttribute('viewBox', `0 0 ${w} ${h}`);
+        svg.innerHTML = `
+            <text x="${w / 2}" y="${h / 2 - 6}" text-anchor="middle" fill="#bfbfbf" font-size="14">请先配置筛选条件</text>
+            <text x="${w / 2}" y="${h / 2 + 18}" text-anchor="middle" fill="#bfbfbf" font-size="13">点击「生成结果」查看链路拓扑</text>
+        `;
+        const cnt = document.getElementById('loCanvasCount');
+        if (cnt) cnt.textContent = '0';
+        // 隐藏告警筛选面板
+        const filterPanel = document.getElementById('loAlertFilterPanel');
+        if (filterPanel) filterPanel.classList.add('hidden');
+        // 重置图例计数
+        ['loLegendCntNormal', 'loLegendCntError', 'loLegendCntWarn', 'loLegendCntAbnormal'].forEach(id => {
+            const el = document.getElementById(id);
+            if (el) el.textContent = '0';
+        });
+        return;
+    }
     const z = loCanvasState.zoom;
     // 使用 viewBox 实现缩放
     const vbW = w / z;
@@ -958,7 +982,10 @@ function renderLoTopology() {
     const targetY = h / 2;
     const downX = w * 0.62;
     const downCount = loTopologyData.downstream.length;
-    const downGap = 70;
+    // 接口粒度时节点更高，加大行间距避免重叠
+    const _gran = document.querySelector('input[name="loGran"][value="interface"]');
+    const _showIface = !!(_gran && _gran.checked);
+    const downGap = _showIface ? 100 : 70;
     const downStartY = targetY - ((downCount - 1) * downGap) / 2;
 
     let html = '';
@@ -1030,15 +1057,34 @@ function renderLoNode(x, y, node, isTarget) {
     const status = node.status || 'normal';
     const color = LO_STATUS_COLOR[status];
     const label = node.psm;
-    const baseTextW = Math.max(140, label.length * 7 + 50);
+    // 是否启用接口粒度：勾选了 interface 复选框
+    const showIface = (function() {
+        const el = document.querySelector('input[name="loGran"][value="interface"]');
+        return !!(el && el.checked);
+    })();
+    const ifaceText = showIface ? `method: ${node.invokeMethod || '-'}` : '';
+
+    // 计算上下两行各自所需宽度
+    const psmRowW = Math.max(140, label.length * 7 + 50);
+    const ifaceRowW = showIface ? Math.max(140, ifaceText.length * 7 + 36) : 0;
+    const baseTextW = Math.max(psmRowW, ifaceRowW);
     const hasAbn = !!node.abnormalTraffic;
     const tagW = 56;
-    const tagGap = 6; // 标签与文字的间距
-    // 节点宽度：含标签时预留出标签宽度 + 间距 + 右内边距
+    const tagGap = 6;
     const rectW = hasAbn ? (baseTextW + tagW + tagGap + 6) : baseTextW;
-    const rectH = 30;
+
+    // 节点高度：双行 56，单行 30
+    const rectH = showIface ? 56 : 30;
     const rectX = x;
     const rectY = y - rectH / 2;
+    const psmRowY = showIface ? rectY : rectY; // 第一行顶部
+    const psmRowH = showIface ? 28 : rectH;
+    // 第一行（psm）的中心 y
+    const psmCenterY = psmRowY + psmRowH / 2;
+    // 第二行（method）的中心 y
+    const ifaceRowY = psmRowY + psmRowH;
+    const ifaceRowH = 28;
+    const ifaceCenterY = ifaceRowY + ifaceRowH / 2;
 
     // alertFilter 命中判定
     const filter = loCanvasState.alertFilter || 'all';
@@ -1056,20 +1102,29 @@ function renderLoNode(x, y, node, isTarget) {
 
     let abnTagSvg = '';
     if (hasAbn) {
-        // 放置在节点内部右侧（rectX + rectW - tagW - 6 内边距）
         const tagX = rectX + rectW - tagW - 6;
-        const tagY = y - 8;
+        const tagY = psmCenterY - 8;
         abnTagSvg = `
             <rect x="${tagX}" y="${tagY}" width="${tagW}" height="16" rx="3" fill="#722ed1"/>
             <text x="${tagX + tagW / 2}" y="${tagY + 12}" text-anchor="middle" fill="#fff" font-size="11">异常流量</text>
         `;
     }
 
+    // 接口行：浅灰底 + 黑字
+    let ifaceRowSvg = '';
+    if (showIface) {
+        ifaceRowSvg = `
+            <rect x="${rectX}" y="${ifaceRowY}" width="${rectW}" height="${ifaceRowH}" fill="#f5f5f5" stroke="${color.stroke}" stroke-width="${strokeW}" rx="0" ry="0"/>
+            <text x="${rectX + 12}" y="${ifaceCenterY + 4}" fill="#1d1f23" font-size="12">${ifaceText}</text>
+        `;
+    }
+
     return `
         <g data-psm="${label}" opacity="${groupOpacity}">
-            <rect x="${rectX}" y="${rectY}" width="${rectW}" height="${rectH}" fill="${color.rect}" stroke="${color.stroke}" stroke-width="${strokeW}" rx="4"/>
-            <circle cx="${rectX + 16}" cy="${y}" r="6" fill="${color.dot}"/>
-            <text x="${rectX + 30}" y="${y + 4}" fill="${color.text}" font-size="12">${label}</text>
+            <rect x="${rectX}" y="${psmRowY}" width="${rectW}" height="${psmRowH}" fill="${color.rect}" stroke="${color.stroke}" stroke-width="${strokeW}" rx="4" ry="4"/>
+            ${ifaceRowSvg}
+            <circle cx="${rectX + 16}" cy="${psmCenterY}" r="6" fill="${color.dot}"/>
+            <text x="${rectX + 30}" y="${psmCenterY + 4}" fill="${color.text}" font-size="12">${label}</text>
             ${abnTagSvg}
         </g>
     `;
@@ -1116,47 +1171,54 @@ function updateLoAlertBar() {
 function renderLoList() {
     const tbody = document.getElementById('loListTableBody');
     if (!tbody) return;
-    const allNodes = [loTopologyData.target, ...loTopologyData.downstream];
+    // 未生成结果时列表清空
+    if (!loResultGenerated) {
+        tbody.innerHTML = '';
+        return;
+    }
     const search = (document.getElementById('loListSearch')?.value || '').toLowerCase().trim();
     const statusFilter = document.getElementById('loListStatus')?.value || 'all';
-    const rows = allNodes.filter(n => {
+    // 解析限流类型/限流模式（来源于 limitConfig 文本，无则给默认值）
+    const parseLimitInfo = (n) => {
+        const lc = n.limitConfig || '';
+        // 限流值优先取 node.threshold，回退到从 limitConfig 文本提取
+        const limitVal = n.threshold || (lc.match(/阈值\s*([\d.]+\s*k?)/) || ['-', '-'])[1] || '-';
+        const limitType = lc.includes('优先级') ? '优先级限流' : (lc.includes('QPS') ? 'QPS 限流' : 'QPS 限流');
+        const limitMode = '单机限流';
+        return { limitVal, limitType, limitMode };
+    };
+    // 列表的每一行 = 一条调用边：调用方（target）-> 被调用方（downstream 节点 / 当前 target 自身）
+    // 当筛选目标是 target 节点本身时，仍展示为「调用方=target，被调用方=target」？此处只展示真实下游边。
+    const callerSvc = loTopologyData.target.psm;
+    const callerCluster = loTopologyData.target.cluster || '-';
+    const edges = loTopologyData.downstream.map(n => ({ caller: loTopologyData.target, callee: n }));
+    const filteredEdges = edges.filter(({ callee: n }) => {
         if (statusFilter !== 'all' && n.status !== statusFilter) return false;
-        if (search && !n.psm.toLowerCase().includes(search)) return false;
+        if (search) {
+            const hay = `${callerSvc} ${n.psm} ${n.invokeMethod || ''}`.toLowerCase();
+            if (!hay.includes(search)) return false;
+        }
         return true;
     });
-    const statusBadge = (s) => {
-        if (s === 'error') return '<span class="badge badge-error">异常</span>';
-        if (s === 'warn') return '<span class="badge badge-warning">预警</span>';
-        return '<span class="badge badge-success">正常</span>';
-    };
-    const renderAbnormal = (n) => {
-        if (n.status === 'normal') return '-';
-        const lines = [];
-        if (n.limitEvent) lines.push(`<div><span class="lo-abn-label">限流</span> ${n.limitEvent.time}：${n.limitEvent.data}</div>`);
-        if (n.warnEvent) lines.push(`<div><span class="lo-abn-label">预警</span> ${n.warnEvent.time}：${n.warnEvent.data}</div>`);
-        if (n.ticketEvent) lines.push(`<div><span class="lo-abn-label">工单</span> ${n.ticketEvent.time}：${n.ticketEvent.data}</div>`);
-        return lines.length ? `<div class="lo-abn-cell">${lines.join('')}</div>` : '-';
-    };
-    tbody.innerHTML = rows.map(n => `
-        <tr>
-            <td>${n.psm}</td>
-            <td>${n.vdc} / ${n.cluster} / ${n.method}</td>
-            <td>${n.limitConfig}</td>
-            <td>${n.invokeMethod}</td>
-            <td>峰值 ${n.peakQps} / P99 ${n.p99} / 阈值 ${n.threshold}</td>
-            <td>${n.cpu}</td>
-            <td>${statusBadge(n.status)}</td>
-            <td>${renderAbnormal(n)}</td>
-            <td><a href="#" class="action-link" data-detail="${n.psm}">详情</a></td>
-        </tr>
-    `).join('') || `<tr><td colspan="9" style="text-align:center;color:#999;padding:24px">暂无匹配数据</td></tr>`;
 
-    tbody.querySelectorAll('[data-detail]').forEach(a => {
-        a.addEventListener('click', (e) => {
-            e.preventDefault();
-            openLoNodeDrawer(a.dataset.detail);
-        });
-    });
+    tbody.innerHTML = filteredEdges.map(({ callee: n }) => {
+        const info = parseLimitInfo(n);
+        return `
+        <tr>
+            <td>${callerSvc}</td>
+            <td>${callerCluster}</td>
+            <td>${n.psm}</td>
+            <td>${n.cluster || '-'}</td>
+            <td>${n.invokeMethod || '-'}</td>
+            <td>${info.limitVal}</td>
+            <td>${info.limitType}</td>
+            <td>${info.limitMode}</td>
+            <td>${n.peakQps || '-'}</td>
+            <td>${n.currentQps || '-'}</td>
+            <td>${n.p99 || '-'}</td>
+            <td>${n.cpu || '-'}</td>
+        </tr>
+    `; }).join('') || `<tr><td colspan="12" style="text-align:center;color:#999;padding:24px">暂无匹配数据</td></tr>`;
 }
 
 function findLoNode(psm) {
@@ -1229,9 +1291,9 @@ function openLoNodeDrawer(psm) {
         </div>
     `;
 
-    // 告警事件区块
+    // 告警事件区块（无论节点是否异常都展示，正常节点仅表格为空）
     let alertHtml = '';
-    if (isAbnormal) {
+    {
         const qpsChartHtml = buildLoNodeQpsChart(node);
         // 限流表
         const limitRows = node.limitEvent
@@ -1256,7 +1318,7 @@ function openLoNodeDrawer(psm) {
         const warnTable = `
             <div class="lo-alert-sub-title">预警</div>
             <table class="data-table lo-iface-table">
-                <thead><tr><th>限流接口</th><th>限流类型</th><th>限流值</th><th>限流水位</th><th>触发时间</th></tr></thead>
+                <thead><tr><th>限流接口</th><th>限流类型</th><th>限流值</th><th>预警水位</th><th>触发时间</th></tr></thead>
                 <tbody>
                     ${warnRows.length
                         ? warnRows.map(r => `<tr><td>${r.iface}</td><td>${r.type}</td><td>${r.limit}</td><td>${r.water}</td><td>${r.time}</td></tr>`).join('')
@@ -1281,14 +1343,52 @@ function openLoNodeDrawer(psm) {
             </table>
         `;
 
-        // 限流配置表
-        const cfgRows = [{ iface: node.invokeMethod || '-', type: 'QPS 限流', limit: node.threshold || '-', cpu: node.cpu || '-' }];
+        // 限流配置表：展示 PSM 下的五元组（上游psm/上游集群/服务psm/服务集群/服务接口）
+        const svcPsm = node.psm;
+        const svcCluster = node.cluster || '-';
+        const svcIface = node.invokeMethod || '-';
+        // 多条限流配置：默认提供"全部上游"通配 + 已知具体上游条目
+        const cfgRows = [
+            {
+                upPsm: '*',
+                upCluster: '*',
+                svcPsm,
+                svcCluster,
+                svcIface,
+                type: 'QPS 限流',
+                limit: node.threshold || '-',
+                cpu: node.cpu || '-'
+            }
+        ];
+        // 若节点有具体上游链路（target 节点的上游或下游节点的 target），追加一条具体五元组
+        if (node !== loTopologyData.target) {
+            cfgRows.unshift({
+                upPsm: loTopologyData.target.psm,
+                upCluster: loTopologyData.target.cluster || 'default',
+                svcPsm,
+                svcCluster,
+                svcIface,
+                type: 'QPS 限流',
+                limit: node.threshold || '-',
+                cpu: node.cpu || '-'
+            });
+        }
         const cfgTable = `
             <div class="lo-alert-sub-title">限流配置</div>
             <table class="data-table lo-iface-table">
-                <thead><tr><th>限流接口</th><th>限流类型</th><th>限流值</th><th>CPU 利用率</th><th>操作</th></tr></thead>
+                <thead><tr><th>上游 psm</th><th>上游集群</th><th>服务 psm</th><th>服务集群</th><th>服务接口</th><th>限流类型</th><th>限流值</th><th>CPU 利用率</th><th>操作</th></tr></thead>
                 <tbody>
-                    ${cfgRows.map(r => `<tr><td>${r.iface}</td><td>${r.type}</td><td>${r.limit}</td><td>${r.cpu}</td><td><a class="lo-config-action" href="#" data-psm="${node.psm}">编辑</a></td></tr>`).join('')}
+                    ${cfgRows.map(r => `<tr>
+                        <td>${r.upPsm}</td>
+                        <td>${r.upCluster}</td>
+                        <td>${r.svcPsm}</td>
+                        <td>${r.svcCluster}</td>
+                        <td>${r.svcIface}</td>
+                        <td>${r.type}</td>
+                        <td>${r.limit}</td>
+                        <td>${r.cpu}</td>
+                        <td><a class="lo-config-action" href="#" data-psm="${node.psm}">编辑</a></td>
+                    </tr>`).join('')}
                 </tbody>
             </table>
         `;
@@ -1401,7 +1501,7 @@ function buildLoNodeQpsChart(node) {
 
     // 限流值（红线，y 上方）
     const yLimit = padT + innerH - (limit / yMax) * innerH;
-    // 限流水位（橙线，y 下方）
+    // 预警水位（橙线，y 下方）
     const yWater = padT + innerH - (water / yMax) * innerH;
     const limitLine = `
         <line x1="${padL}" y1="${yLimit}" x2="${padL + innerW}" y2="${yLimit}" stroke="#ff4d4f" stroke-width="1.2" stroke-dasharray="6 4"/>
@@ -1409,7 +1509,7 @@ function buildLoNodeQpsChart(node) {
     `;
     const waterLine = `
         <line x1="${padL}" y1="${yWater}" x2="${padL + innerW}" y2="${yWater}" stroke="#fa8c16" stroke-width="1.2" stroke-dasharray="6 4"/>
-        <text x="${padL + innerW - 4}" y="${yWater + 14}" text-anchor="end" font-size="11" fill="#fa8c16">限流水位 ${water >= 1000 ? (water / 1000).toFixed(1) + 'k' : water.toFixed(0)}</text>
+        <text x="${padL + innerW - 4}" y="${yWater + 14}" text-anchor="end" font-size="11" fill="#fa8c16">预警水位 ${water >= 1000 ? (water / 1000).toFixed(1) + 'k' : water.toFixed(0)}</text>
     `;
 
     // error 节点：3 个紫色异常流量圆点（峰值附近）
@@ -1444,7 +1544,7 @@ function buildLoNodeQpsChart(node) {
             <div class="lo-qps-chart-header">
                 <span class="lo-qps-chart-title">QPS</span>
                 <span class="lo-qps-chart-legend">
-                    <span class="lo-qps-legend-item"><span class="lo-qps-legend-dash" style="background:#fa8c16"></span>限流水位</span>
+                    <span class="lo-qps-legend-item"><span class="lo-qps-legend-dash" style="background:#fa8c16"></span>预警水位</span>
                     <span class="lo-qps-legend-item"><span class="lo-qps-legend-dash" style="background:#ff4d4f"></span>限流值</span>
                     <span class="lo-qps-legend-item"><span class="lo-qps-legend-dot" style="background:#722ed1"></span>异常流量</span>
                 </span>
@@ -1842,58 +1942,39 @@ function updateLoGenerateDot() {
 }
 
 function persistLoFilterDraft() {
-    try {
-        const values = collectLoFilterValues();
-        localStorage.setItem(LO_DRAFT_KEY, JSON.stringify(values));
-    } catch (e) { /* ignore */ }
+    // 不再持久化草稿：每次进入页面均为空态
 }
 
 function restoreLoFilterDraft() {
+    // 每次进入页面强制重置为空态：清理 localStorage、清空表单、复位状态机
     try {
-        // 清理旧版本草稿，确保首次升级到本版本时不会回写旧默认值
         localStorage.removeItem('lo_filter_draft');
         localStorage.removeItem('lo_saved_config');
-        const raw = localStorage.getItem(LO_DRAFT_KEY);
-        // 首次登录无任何草稿 -> 保持筛选项与展示结果均为空
-        if (!raw) {
-            loResultGenerated = false;
-            loConfigState.lastGenerated = null;
-            loConfigState.firstFilled = false;
-            loConfigState.dirty = false;
-            hideLoStatus();
-            updateLoGenerateDot();
-            return;
+        if (typeof LO_DRAFT_KEY !== 'undefined') {
+            localStorage.removeItem(LO_DRAFT_KEY);
         }
-        const values = JSON.parse(raw);
-        // 草稿存在但所有字段都为空 -> 等同首次登录的空状态
-        if (isLoFilterEmpty(values)) {
-            loResultGenerated = false;
-            loConfigState.lastGenerated = null;
-            loConfigState.firstFilled = false;
-            loConfigState.dirty = false;
-            hideLoStatus();
-            updateLoGenerateDot();
-            return;
-        }
-        Object.keys(values).forEach(k => {
-            if (k === 'granularity') {
-                const checked = (values[k] || '').split(',').filter(Boolean);
-                document.querySelectorAll('input[name="loGran"]').forEach(c => {
-                    c.checked = checked.includes(c.value);
-                });
-            } else {
-                const el = document.getElementById(k);
-                if (el) el.value = values[k] || '';
-            }
-        });
-        // 有草稿但未生成结果：标记为首次填写状态，保留红点提示用户去生成
-        loResultGenerated = false;
-        loConfigState.lastGenerated = null;
-        loConfigState.firstFilled = true;
-        loConfigState.dirty = false;
-        showLoStatus('已配置筛选条件，待生成观测结果');
-        updateLoGenerateDot();
     } catch (e) { /* ignore */ }
+
+    // 清空所有筛选项 DOM
+    ['loEntry', 'loVDC', 'loCluster', 'loTimeRange', 'loDepType', 'loPriority',
+     'loSvcType', 'loUpLevel', 'loDownLevel'].forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.value = '';
+    });
+    document.querySelectorAll('input[name="loGran"]').forEach(c => { c.checked = false; });
+
+    // 复位状态机
+    loResultGenerated = false;
+    loConfigState.lastGenerated = null;
+    loConfigState.firstFilled = false;
+    loConfigState.dirty = false;
+    loConfigState.savedConfigId = null;
+    loConfigState.lastSaved = null;
+    hideLoStatus();
+    updateLoGenerateDot();
+    // 立即重渲染拓扑/列表为空态
+    if (typeof renderLoTopology === 'function') renderLoTopology();
+    if (typeof renderLoList === 'function') renderLoList();
 }
 
 function initLoFilterWatch() {
