@@ -930,7 +930,11 @@ const loCanvasState = {
     realtime: true,
     legend: true,
     realtimeTimer: null,
-    alertFilter: 'all'
+    alertFilter: 'all',
+    qpsOp: 'gte',
+    qpsValue: null,
+    cpuOp: 'gte',
+    cpuValue: null
 };
 
 // 各节点的指标样本（用于切换节点指标/统计函数时显示）
@@ -1051,6 +1055,7 @@ function renderLoTopology() {
     // 更新告警筛选条 + 一次性绑定 chips
     updateLoAlertBar();
     bindLoAlertBarChips();
+    bindLoCanvasMetricFilter();
 }
 
 function renderLoNode(x, y, node, isTarget) {
@@ -1095,10 +1100,30 @@ function renderLoNode(x, y, node, isTarget) {
         else if (filter === 'abnormal') matched = !!node.abnormalTraffic;
         else matched = true;
     }
-    const dim = !isTarget && filter !== 'all' && !matched;
+    // QPS / CPU 数值筛选命中判定（target 节点不参与）
+    const cmp = (val, op, target) => {
+        if (val == null || isNaN(val)) return false;
+        if (op === 'gte') return val >= target;
+        if (op === 'lte') return val <= target;
+        if (op === 'eq') return val === target;
+        return true;
+    };
+    let metricMatched = true;
+    if (!isTarget) {
+        if (loCanvasState.qpsValue != null) {
+            const qps = parseFloat(String(node.peakQps || node.currentQps || '').replace(/[^\d.]/g, ''));
+            metricMatched = metricMatched && cmp(qps, loCanvasState.qpsOp, loCanvasState.qpsValue);
+        }
+        if (loCanvasState.cpuValue != null) {
+            const cpu = parseFloat(String(node.cpu || '').replace(/[^\d.]/g, ''));
+            metricMatched = metricMatched && cmp(cpu, loCanvasState.cpuOp, loCanvasState.cpuValue);
+        }
+    }
+    const hasMetricFilter = !isTarget && (loCanvasState.qpsValue != null || loCanvasState.cpuValue != null);
+    const dim = !isTarget && ((filter !== 'all' && !matched) || (hasMetricFilter && !metricMatched));
     const groupOpacity = dim ? 0.25 : 1;
     const baseStrokeW = isTarget || status === 'error' ? 1.8 : 1;
-    const strokeW = (!isTarget && filter !== 'all' && matched) ? 2.5 : baseStrokeW;
+    const strokeW = (!isTarget && ((filter !== 'all' && matched) || (hasMetricFilter && metricMatched))) ? 2.5 : baseStrokeW;
 
     let abnTagSvg = '';
     if (hasAbn) {
@@ -1144,6 +1169,25 @@ function bindLoAlertBarChips() {
         });
     });
     _loAlertChipsBound = true;
+}
+
+let _loMetricFilterBound = false;
+function bindLoCanvasMetricFilter() {
+    if (_loMetricFilterBound) return;
+    const btn = document.getElementById('loCanvasMetricApply');
+    if (!btn) return;
+    btn.addEventListener('click', () => {
+        const qpsOp = document.getElementById('loCanvasQpsOp')?.value || 'gte';
+        const qpsRaw = document.getElementById('loCanvasQpsValue')?.value;
+        const cpuOp = document.getElementById('loCanvasCpuOp')?.value || 'gte';
+        const cpuRaw = document.getElementById('loCanvasCpuValue')?.value;
+        loCanvasState.qpsOp = qpsOp;
+        loCanvasState.qpsValue = (qpsRaw === '' || qpsRaw == null) ? null : parseFloat(qpsRaw);
+        loCanvasState.cpuOp = cpuOp;
+        loCanvasState.cpuValue = (cpuRaw === '' || cpuRaw == null) ? null : parseFloat(cpuRaw);
+        renderLoTopology();
+    });
+    _loMetricFilterBound = true;
 }
 
 function updateLoAlertBar() {
@@ -1970,6 +2014,20 @@ function restoreLoFilterDraft() {
     loConfigState.dirty = false;
     loConfigState.savedConfigId = null;
     loConfigState.lastSaved = null;
+    // 复位画布筛选项（QPS / CPU / 告警筛选）
+    loCanvasState.alertFilter = 'all';
+    loCanvasState.qpsValue = null;
+    loCanvasState.qpsOp = 'gte';
+    loCanvasState.cpuValue = null;
+    loCanvasState.cpuOp = 'gte';
+    ['loCanvasQpsValue', 'loCanvasCpuValue'].forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.value = '';
+    });
+    ['loCanvasQpsOp', 'loCanvasCpuOp'].forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.value = 'gte';
+    });
     hideLoStatus();
     updateLoGenerateDot();
     // 立即重渲染拓扑/列表为空态
