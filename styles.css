@@ -2507,9 +2507,10 @@ input:checked + .slider:before {
     color: #1f1f1f;
 }
 .lo-alert-chip[data-filter="all"].active {
-    background: #f5f5f5;
-    border-color: #8c8c8c;
-    color: #1f1f1f;
+    background: #e6fffb;
+    border-color: #13a8a8;
+    color: #13a8a8;
+    box-shadow: 0 0 0 2px rgba(19, 168, 168, 0.18);
 }
 
 /* 各类别默认即显示对应颜色（浅底 + 同色边框 + 同色文字） */
@@ -2529,31 +2530,60 @@ input:checked + .slider:before {
     color: #722ed1;
 }
 
-/* 选中态：加重底色与边框 */
+/* 选中态：实色填充 + 高亮阴影，与未选中形成强对比 */
 .lo-alert-chip-error.active {
-    background: #ffccc7;
+    background: #ff4d4f;
     border-color: #cf1322;
-    color: #cf1322;
-    box-shadow: 0 0 0 2px rgba(255, 77, 79, 0.15);
+    color: #fff;
+    box-shadow: 0 0 0 3px rgba(255, 77, 79, 0.25);
 }
 .lo-alert-chip-warn.active {
-    background: #ffe7ba;
+    background: #fa8c16;
     border-color: #d46b08;
-    color: #d46b08;
-    box-shadow: 0 0 0 2px rgba(250, 140, 22, 0.15);
+    color: #fff;
+    box-shadow: 0 0 0 3px rgba(250, 140, 22, 0.25);
 }
 .lo-alert-chip-abnormal.active {
-    background: #efdbff;
+    background: #722ed1;
     border-color: #531dab;
-    color: #531dab;
-    box-shadow: 0 0 0 2px rgba(114, 46, 209, 0.15);
+    color: #fff;
+    box-shadow: 0 0 0 3px rgba(114, 46, 209, 0.25);
 }
 
-/* 拓扑画布右侧告警筛选面板 */
+/* 拓扑节点 hover 全称 tooltip：节点上方浮窗 */
+.lo-node-tooltip {
+    position: absolute;
+    z-index: 30;
+    background: rgba(31, 31, 31, 0.92);
+    color: #fff;
+    font-size: 12px;
+    line-height: 1.5;
+    padding: 6px 10px;
+    border-radius: 4px;
+    pointer-events: none;
+    max-width: 360px;
+    white-space: nowrap;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.18);
+}
+.lo-node-tooltip.hidden {
+    display: none;
+}
+.lo-node-tooltip::after {
+    content: "";
+    position: absolute;
+    bottom: -5px;
+    left: 50%;
+    transform: translateX(-50%);
+    border: 5px solid transparent;
+    border-top-color: rgba(31, 31, 31, 0.92);
+    border-bottom: 0;
+}
+
+/* 拓扑画布右侧告警筛选面板：右边与 icon 列右边对齐 */
 .lo-canvas-alert-filter {
     position: absolute;
     top: 12px;
-    right: 60px;
+    right: 12px;
     z-index: 5;
     display: flex;
     flex-direction: row;
@@ -2609,6 +2639,17 @@ input:checked + .slider:before {
     color: #1d1f23;
     cursor: pointer;
     outline: none;
+}
+.lo-canvas-metric-filter .lo-metric-op-static {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 22px;
+    height: 22px;
+    padding: 0 6px;
+    font-size: 13px;
+    color: #595959;
+    user-select: none;
 }
 .lo-canvas-metric-filter .lo-metric-input {
     width: 84px;
@@ -2821,9 +2862,82 @@ input:checked + .slider:before {
     color: #1f1f1f;
 }
 
+/* 工单 ID 超链接 */
+.lo-ticket-link {
+    color: #1890ff;
+    text-decoration: none;
+}
+.lo-ticket-link:hover {
+    text-decoration: underline;
+}
+
+/* 限流配置 Tab 系统 */
+.lo-cfg-tabs {
+    border: 1px solid #f0f0f0;
+    border-radius: 6px;
+    background: #fff;
+    overflow: hidden;
+}
+.lo-cfg-tab-headers {
+    display: flex;
+    gap: 0;
+    border-bottom: 1px solid #f0f0f0;
+    background: #fafafa;
+}
+.lo-cfg-tab-h {
+    padding: 10px 16px;
+    font-size: 13px;
+    font-weight: 500;
+    color: #595959;
+    cursor: pointer;
+    border-bottom: 2px solid transparent;
+    transition: color 0.2s, border-color 0.2s, background 0.2s;
+}
+.lo-cfg-tab-h:hover {
+    color: #13a8a8;
+}
+.lo-cfg-tab-h.active {
+    color: #13a8a8;
+    background: #fff;
+    border-bottom-color: #13a8a8;
+}
+.lo-cfg-tab-panel {
+    padding: 12px;
+}
+.lo-cfg-tab-panel.hidden {
+    display: none;
+}
+.lo-cfg-sub-tabs {
+    display: flex;
+    gap: 16px;
+    margin-bottom: 10px;
+    border-bottom: 1px dashed #f0f0f0;
+    padding-bottom: 6px;
+}
+.lo-cfg-sub-tab {
+    padding: 4px 8px;
+    font-size: 12px;
+    color: #8c8c8c;
+    cursor: pointer;
+    border-radius: 4px;
+    transition: color 0.2s, background 0.2s;
+}
+.lo-cfg-sub-tab:hover {
+    color: #13a8a8;
+}
+.lo-cfg-sub-tab.active {
+    color: #13a8a8;
+    background: rgba(19, 168, 168, 0.08);
+    font-weight: 500;
+}
+.lo-cfg-sub-panel.hidden {
+    display: none;
+}
+
 /* QPS 趋势图 */
 .lo-qps-chart-wrap {
-    cursor: zoom-in;
+    position: relative;
+    cursor: default;
     padding: 12px 12px 8px;
     background: #fff;
     border: 1px solid #f0f0f0;
@@ -2836,6 +2950,56 @@ input:checked + .slider:before {
     align-items: center;
     margin-bottom: 8px;
 }
+.lo-qps-chart-actions {
+    display: inline-flex;
+    align-items: center;
+    gap: 12px;
+}
+.lo-qps-chart-zoom {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 22px;
+    height: 22px;
+    border: 1px solid #d9d9d9;
+    border-radius: 4px;
+    background: #fff;
+    color: #595959;
+    cursor: pointer;
+    padding: 0;
+}
+.lo-qps-chart-zoom:hover {
+    color: #13a8a8;
+    border-color: #13a8a8;
+}
+/* hover/click 浮窗 */
+.lo-qps-tip {
+    position: absolute;
+    z-index: 20;
+    min-width: 220px;
+    background: #fff;
+    border: 1px solid #e8e8e8;
+    border-radius: 6px;
+    box-shadow: 0 6px 16px rgba(0, 0, 0, 0.12);
+    padding: 10px 12px;
+    font-size: 12px;
+    color: #1d1f23;
+    pointer-events: none;
+}
+.lo-qps-tip.hidden { display: none !important; }
+.lo-qps-tip-title {
+    font-weight: 600;
+    margin-bottom: 8px;
+    font-size: 13px;
+}
+.lo-qps-tip-row {
+    display: flex;
+    justify-content: space-between;
+    gap: 16px;
+    line-height: 22px;
+}
+.lo-qps-tip-k { color: #8c8c8c; }
+.lo-qps-tip-v { color: #1d1f23; font-weight: 500; }
 .lo-qps-chart-title {
     font-size: 13px;
     font-weight: 600;
@@ -2868,6 +3032,349 @@ input:checked + .slider:before {
 .lo-qps-chart {
     display: block;
     width: 100%;
+}
+.lo-qps-chart-svg {
+    width: 100%;
+}
+
+/* 接口可搜索多选下拉（Ant Design 5 / Arco Design 风格） */
+.lo-iface-select {
+    position: relative;
+    flex: 1;
+    min-width: 0;
+    max-width: 460px;
+    margin-left: 12px;
+    font-size: 12px;
+}
+.lo-iface-select-trigger {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    min-height: 28px;
+    padding: 2px 8px;
+    border: 1px solid #d9d9d9;
+    border-radius: 6px;
+    background: #fff;
+    cursor: pointer;
+    transition: border-color 0.2s, box-shadow 0.2s;
+}
+.lo-iface-select-trigger:hover {
+    border-color: #13a8a8;
+}
+.lo-iface-select[data-open="1"] .lo-iface-select-trigger,
+.lo-iface-select-trigger:focus {
+    border-color: #13a8a8;
+    box-shadow: 0 0 0 2px rgba(19, 168, 168, 0.12);
+    outline: none;
+}
+.lo-iface-select-tags {
+    flex: 1;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+    min-width: 0;
+    overflow: hidden;
+}
+.lo-iface-select-placeholder {
+    color: #bfbfbf;
+    font-size: 12px;
+    line-height: 22px;
+}
+.lo-iface-select-arrow {
+    color: #8c8c8c;
+    font-size: 12px;
+    flex-shrink: 0;
+}
+.lo-iface-tag {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    height: 20px;
+    padding: 0 6px;
+    background: #f5f5f5;
+    border: 1px solid #e8e8e8;
+    border-radius: 4px;
+    font-size: 11px;
+    color: #1f1f1f;
+    line-height: 1;
+    max-width: 220px;
+}
+.lo-iface-tag-name {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+.lo-iface-tag-close {
+    color: #8c8c8c;
+    cursor: pointer;
+    font-size: 14px;
+    line-height: 1;
+    padding: 0 2px;
+}
+.lo-iface-tag-close:hover {
+    color: #ff4d4f;
+}
+.lo-iface-select-panel {
+    position: absolute;
+    top: calc(100% + 4px);
+    right: 0;
+    left: 0;
+    z-index: 30;
+    background: #fff;
+    border: 1px solid #e8e8e8;
+    border-radius: 6px;
+    box-shadow: 0 6px 16px rgba(0, 0, 0, 0.08);
+    padding: 6px;
+    max-height: 320px;
+    display: flex;
+    flex-direction: column;
+}
+.lo-iface-select-panel.hidden { display: none; }
+.lo-iface-select-search {
+    padding: 4px;
+}
+.lo-iface-select-input {
+    width: 100%;
+    height: 28px;
+    padding: 0 8px;
+    font-size: 12px;
+    border: 1px solid #d9d9d9;
+    border-radius: 4px;
+    outline: none;
+    transition: border-color 0.2s, box-shadow 0.2s;
+    box-sizing: border-box;
+}
+.lo-iface-select-input:focus {
+    border-color: #13a8a8;
+    box-shadow: 0 0 0 2px rgba(19, 168, 168, 0.12);
+}
+.lo-iface-select-list {
+    flex: 1;
+    overflow: auto;
+    margin-top: 4px;
+    max-height: 220px;
+}
+.lo-iface-select-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 8px;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 12px;
+    color: #1f1f1f;
+    transition: background 0.15s;
+}
+.lo-iface-select-item:hover {
+    background: #f5f5f5;
+}
+.lo-iface-select-item.checked {
+    background: rgba(19, 168, 168, 0.08);
+    color: #13a8a8;
+}
+.lo-iface-select-item.disabled {
+    color: #bfbfbf;
+    cursor: not-allowed;
+}
+.lo-iface-select-item.disabled:hover {
+    background: transparent;
+}
+.lo-iface-select-check {
+    display: inline-block;
+    width: 14px;
+    color: #13a8a8;
+    font-size: 12px;
+    text-align: center;
+    flex-shrink: 0;
+}
+.lo-iface-select-name {
+    flex: 1;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+.lo-iface-select-empty {
+    padding: 16px 8px;
+    text-align: center;
+    color: #bfbfbf;
+    font-size: 12px;
+}
+.lo-iface-select-footer {
+    padding: 6px 8px 2px;
+    font-size: 11px;
+    color: #bfbfbf;
+    border-top: 1px solid #f5f5f5;
+    margin-top: 4px;
+}
+
+/* 接口状态徽标 */
+.lo-iface-badge {
+    display: inline-flex;
+    align-items: center;
+    height: 18px;
+    padding: 0 6px;
+    border: 1px solid;
+    border-radius: 9px;
+    font-size: 11px;
+    line-height: 1;
+    flex-shrink: 0;
+}
+
+/* 趋势图底部图名（caption） */
+.lo-qps-chart-caption {
+    margin-top: 8px;
+    padding: 6px 4px 2px;
+    font-size: 12px;
+    color: #595959;
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 12px;
+    border-top: 1px dashed #f0f0f0;
+}
+.lo-qps-caption-prefix {
+    color: #8c8c8c;
+}
+.lo-qps-caption-item {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+}
+.lo-qps-caption-dash {
+    display: inline-block;
+    width: 14px;
+    height: 2px;
+    border-radius: 1px;
+}
+.lo-qps-caption-name {
+    color: #1f1f1f;
+    font-weight: 500;
+    font-size: 12px;
+}
+.lo-qps-caption-empty {
+    color: #bfbfbf;
+    font-size: 12px;
+}
+
+/* 多线对比 tooltip 行 */
+.lo-qps-tip-line {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    line-height: 20px;
+    font-size: 12px;
+}
+.lo-qps-tip-color {
+    display: inline-block;
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    flex-shrink: 0;
+}
+.lo-qps-tip-name {
+    flex: 1;
+    color: #595959;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    max-width: 220px;
+}
+.lo-qps-tip-val {
+    color: #1d1f23;
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+}
+.lo-qps-tip-kind {
+    display: inline-block;
+    padding: 0 5px;
+    height: 16px;
+    line-height: 16px;
+    font-size: 10px;
+    border-radius: 8px;
+    border: 1px solid;
+}
+.lo-qps-tip-kind-limit {
+    color: #cf1322;
+    background: #fff1f0;
+    border-color: #ffa39e;
+}
+.lo-qps-tip-kind-warn {
+    color: #d46b08;
+    background: #fff7e6;
+    border-color: #ffd591;
+}
+
+/* 预警 / 限流 信息卡片（嵌入 hover tooltip 内） */
+.lo-qps-tip-card {
+    margin-top: 10px;
+    padding: 12px;
+    border-radius: 8px;
+    border: 1px solid #f0f0f0;
+    background: #ffffff;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+    font-size: 12px;
+    max-width: 280px;
+}
+.lo-qps-tip-card-warn {
+    background: #ffffff;
+    border-color: #f0f0f0;
+}
+.lo-qps-tip-card-limit {
+    background: #ffffff;
+    border-color: #f0f0f0;
+}
+.lo-qps-tip-card-title {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-weight: 600;
+    margin-bottom: 8px;
+    font-size: 12px;
+    color: #1f1f1f;
+}
+.lo-qps-tip-dot {
+    display: inline-block;
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+}
+.lo-qps-tip-dot-warn { background: #faad14; }
+.lo-qps-tip-dot-limit { background: #ff4d4f; }
+.lo-qps-tip-card-row {
+    display: flex;
+    justify-content: flex-start;
+    gap: 8px;
+    line-height: 20px;
+}
+.lo-qps-tip-card-k {
+    color: #8c8c8c;
+    flex-shrink: 0;
+    width: 64px;
+}
+.lo-qps-tip-card-v {
+    color: #1f1f1f;
+    font-weight: 500;
+    flex: 1;
+    text-align: right;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    max-width: 200px;
+}
+.lo-qps-tip-ticket {
+    color: #1677ff;
+    text-decoration: none;
+    pointer-events: auto;
+}
+.lo-qps-tip-ticket:hover {
+    text-decoration: underline;
+}
+.lo-qps-tip-footer {
+    margin-top: 6px;
+    padding-top: 6px;
+    border-top: 1px dashed #f0f0f0;
+    font-size: 11px;
+    color: #8c8c8c;
 }
 
 /* 编辑跳转链接 */

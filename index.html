@@ -306,32 +306,19 @@
                                     <span class="lo-legend-item"><span class="lo-legend-dot lo-dot-normal"></span>正常 <span class="lo-legend-count" id="loLegendCntNormal">0</span></span>
                                     <span class="lo-legend-item"><span class="lo-legend-dot lo-dot-error"></span>限流 <span class="lo-legend-count" id="loLegendCntError">0</span></span>
                                     <span class="lo-legend-item"><span class="lo-legend-dot lo-dot-warn"></span>预警 <span class="lo-legend-count" id="loLegendCntWarn">0</span></span>
-                                    <span class="lo-legend-item"><span class="lo-legend-dot lo-dot-abnormal"></span>异常流量 <span class="lo-legend-count" id="loLegendCntAbnormal">0</span></span>
+                                    <span class="lo-legend-item"><span class="lo-legend-dot lo-dot-abnormal"></span>异常 <span class="lo-legend-count" id="loLegendCntAbnormal">0</span></span>
                                 </div>
                                 <div class="lo-canvas-metric-filter">
                                     <span class="lo-metric-label">QPS</span>
-                                    <select class="lo-metric-op" id="loCanvasQpsOp">
-                                        <option value="gte">≥</option>
-                                        <option value="lte">≤</option>
-                                        <option value="eq">=</option>
-                                    </select>
-                                    <input type="number" class="lo-metric-input" id="loCanvasQpsValue" placeholder="请输入数值" />
-                                    <span class="lo-metric-divider"></span>
-                                    <span class="lo-metric-label">CPU 利用率</span>
-                                    <select class="lo-metric-op" id="loCanvasCpuOp">
-                                        <option value="gte">≥</option>
-                                        <option value="lte">≤</option>
-                                        <option value="eq">=</option>
-                                    </select>
-                                    <input type="number" class="lo-metric-input" id="loCanvasCpuValue" placeholder="请输入数值" />
-                                    <span class="lo-metric-unit">%</span>
+                                    <span class="lo-metric-op-static" id="loCanvasQpsOp" data-op="gte">≥</span>
+                                    <input type="text" class="lo-metric-input" id="loCanvasQpsValue" placeholder="请输入数值" />
                                     <button class="lo-metric-btn" id="loCanvasMetricApply">筛选</button>
                                 </div>
                                 <div class="lo-canvas-alert-filter hidden" id="loAlertFilterPanel">
                                     <span class="lo-alert-chip active" data-filter="all">全部</span>
-                                    <span class="lo-alert-chip lo-alert-chip-error" data-filter="error">限流触发</span>
+                                    <span class="lo-alert-chip lo-alert-chip-error" data-filter="error">限流</span>
                                     <span class="lo-alert-chip lo-alert-chip-warn" data-filter="warn">预警</span>
-                                    <span class="lo-alert-chip lo-alert-chip-abnormal" data-filter="abnormal">异常流量</span>
+                                    <span class="lo-alert-chip lo-alert-chip-abnormal" data-filter="abnormal">异常</span>
                                 </div>
                                 <div class="lo-canvas-tools">
                                     <button class="lo-canvas-btn" id="loCanvasLocate" title="节点定位" data-tip="节点定位">
