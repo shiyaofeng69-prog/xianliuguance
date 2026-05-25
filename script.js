@@ -1483,6 +1483,10 @@ function openLoNodeDrawer(psm) {
                 </tbody>
             </table>
         `;
+        // GEC 子面板：根据节点的 limitMode 仅展示对应类型，不再提供 tab 切换
+        const isKeyNode = node.limitMode === 'key';
+        const gecPanelHtml = isKeyNode ? gecKeyTable : gecIfaceTable;
+
         const cfgTable = `
             <div class="lo-alert-sub-title">限流配置</div>
             <div class="lo-cfg-tabs">
@@ -1491,12 +1495,7 @@ function openLoNodeDrawer(psm) {
                     <div class="lo-cfg-tab-h" data-tab="neptune">Neptune</div>
                 </div>
                 <div class="lo-cfg-tab-panel" data-panel="gec">
-                    <div class="lo-cfg-sub-tabs">
-                        <span class="lo-cfg-sub-tab active" data-subtab="iface">接口限流</span>
-                        <span class="lo-cfg-sub-tab" data-subtab="key">自定义 key 限流</span>
-                    </div>
-                    <div class="lo-cfg-sub-panel" data-subpanel="iface">${gecIfaceTable}</div>
-                    <div class="lo-cfg-sub-panel hidden" data-subpanel="key">${gecKeyTable}</div>
+                    ${gecPanelHtml}
                 </div>
                 <div class="lo-cfg-tab-panel hidden" data-panel="neptune">
                     ${neptuneTable}
