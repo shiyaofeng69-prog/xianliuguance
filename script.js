@@ -872,6 +872,7 @@ const loTopologyData = {
             psm: 'toutiao.microservice.alarm',
             status: 'error',
             abnormalTraffic: true,
+            abnormalCount: 3,
             qps: '609.17 req/s',
             vdc: 'Singapore-Central / sg3',
             cluster: 'cluster-b',
@@ -1065,6 +1066,7 @@ function renderLoTopology() {
     updateLoAlertBar();
     bindLoAlertBarChips();
     bindLoCanvasMetricFilter();
+    bindLoCanvasLegendChips();
 }
 
 function renderLoNode(x, y, node, isTarget) {
@@ -1108,6 +1110,7 @@ function renderLoNode(x, y, node, isTarget) {
     if (!isTarget && filter !== 'all') {
         if (filter === 'error') matched = (status === 'error');
         else if (filter === 'warn') matched = (status === 'warn');
+        else if (filter === 'normal') matched = (status === 'normal' && !node.abnormalTraffic);
         else if (filter === 'abnormal') matched = !!node.abnormalTraffic;
         else matched = true;
     }
@@ -1136,17 +1139,18 @@ function renderLoNode(x, y, node, isTarget) {
     const baseStrokeW = isTarget || status === 'error' ? 1.8 : 1;
     const strokeW = (!isTarget && ((filter !== 'all' && matched) || (hasMetricFilter && metricMatched))) ? 2.5 : baseStrokeW;
 
-    // 「异常」角标：放置在节点内部右上角
+    // 「异常」红色圆形数字角标（参考消息未读提醒：红底白字 + 白边），溢出节点右上角
     let abnTagSvg = '';
     if (hasAbn) {
-        const badgeW = 30;
-        const badgeH = 14;
-        const badgeX = rectX + rectW - badgeW - 4;
-        const badgeY = psmRowY + 3;
+        const cnt = node.abnormalCount || 1;
+        const display = cnt > 99 ? '99+' : String(cnt);
+        const r = 9;
+        const cx = rectX + rectW - 2;
+        const cy = psmRowY + 2;
         abnTagSvg = `
             <g class="lo-abn-badge">
-                <rect x="${badgeX}" y="${badgeY}" width="${badgeW}" height="${badgeH}" rx="3" fill="#722ed1"/>
-                <text x="${badgeX + badgeW / 2}" y="${badgeY + 11}" text-anchor="middle" fill="#fff" font-size="10">异常</text>
+                <circle cx="${cx}" cy="${cy}" r="${r}" fill="#ff4d4f" stroke="#ffffff" stroke-width="2"/>
+                <text x="${cx}" y="${cy + 3.5}" text-anchor="middle" fill="#ffffff" font-size="10" font-weight="600">${display}</text>
             </g>
         `;
     }
@@ -1168,8 +1172,7 @@ function renderLoNode(x, y, node, isTarget) {
         <g data-psm="${label}" data-full="${fullAttr}" opacity="${groupOpacity}">
             <rect x="${rectX}" y="${psmRowY}" width="${rectW}" height="${psmRowH}" fill="${color.rect}" stroke="${color.stroke}" stroke-width="${strokeW}" rx="4" ry="4"/>
             ${ifaceRowSvg}
-            <circle cx="${rectX + 16}" cy="${psmCenterY}" r="6" fill="${color.dot}"/>
-            <text x="${rectX + 30}" y="${psmCenterY + 4}" fill="${color.text}" font-size="12">${displayLabel}</text>
+            <text x="${rectX + 12}" y="${psmCenterY + 4}" fill="${color.text}" font-size="12">${displayLabel}</text>
             ${abnTagSvg}
         </g>
     `;
@@ -1222,7 +1225,12 @@ function bindLoAlertBarChips() {
         chip.addEventListener('click', () => {
             panel.querySelectorAll('.lo-alert-chip').forEach(c => c.classList.remove('active'));
             chip.classList.add('active');
-            loCanvasState.alertFilter = chip.getAttribute('data-filter') || 'all';
+            const filter = chip.getAttribute('data-filter') || 'all';
+            loCanvasState.alertFilter = filter;
+            // 同步左上 legend 的 active 态
+            document.querySelectorAll('.lo-canvas-legend .lo-legend-item').forEach(item => {
+                item.classList.toggle('active', item.getAttribute('data-filter') === filter);
+            });
             renderLoTopology();
         });
     });
@@ -1258,16 +1266,43 @@ function updateLoAlertBar() {
         if (n.abnormalTraffic) abnormal++;
     });
     const setText = (id, v) => { const el = document.getElementById(id); if (el) el.textContent = String(v); };
+    setText('loLegendCntAll', all.length);
     setText('loLegendCntNormal', normal);
     setText('loLegendCntError', err);
     setText('loLegendCntWarn', warn);
     setText('loLegendCntAbnormal', abnormal);
+    // legend 高亮态与 alertFilter 同步
+    document.querySelectorAll('.lo-canvas-legend .lo-legend-item').forEach(item => {
+        item.classList.toggle('active', item.getAttribute('data-filter') === (loCanvasState.alertFilter || 'all'));
+    });
     const hasAlert = (err + warn + abnormal) > 0;
     const panel = document.getElementById('loAlertFilterPanel');
     if (panel) {
         if (hasAlert) panel.classList.remove('hidden');
         else panel.classList.add('hidden');
     }
+}
+
+let _loLegendChipsBound = false;
+function bindLoCanvasLegendChips() {
+    if (_loLegendChipsBound) return;
+    const legend = document.querySelector('.lo-canvas-legend');
+    if (!legend) return;
+    legend.querySelectorAll('.lo-legend-item').forEach(item => {
+        item.addEventListener('click', () => {
+            const filter = item.getAttribute('data-filter') || 'all';
+            loCanvasState.alertFilter = filter;
+            // 同步右上 alert chip 的 active 态（若存在）
+            const panel = document.getElementById('loAlertFilterPanel');
+            if (panel) {
+                panel.querySelectorAll('.lo-alert-chip').forEach(c => {
+                    c.classList.toggle('active', c.getAttribute('data-filter') === filter);
+                });
+            }
+            renderLoTopology();
+        });
+    });
+    _loLegendChipsBound = true;
 }
 
 function renderLoList() {

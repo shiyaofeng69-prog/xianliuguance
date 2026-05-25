@@ -302,23 +302,21 @@
 
                             <!-- Topology View -->
                             <div class="lo-canvas" id="loCanvas">
-                                <div class="lo-canvas-legend">
-                                    <span class="lo-legend-item"><span class="lo-legend-dot lo-dot-normal"></span>正常 <span class="lo-legend-count" id="loLegendCntNormal">0</span></span>
-                                    <span class="lo-legend-item"><span class="lo-legend-dot lo-dot-error"></span>限流 <span class="lo-legend-count" id="loLegendCntError">0</span></span>
-                                    <span class="lo-legend-item"><span class="lo-legend-dot lo-dot-warn"></span>预警 <span class="lo-legend-count" id="loLegendCntWarn">0</span></span>
-                                    <span class="lo-legend-item"><span class="lo-legend-dot lo-dot-abnormal"></span>异常 <span class="lo-legend-count" id="loLegendCntAbnormal">0</span></span>
-                                </div>
-                                <div class="lo-canvas-metric-filter">
-                                    <span class="lo-metric-label">QPS</span>
-                                    <span class="lo-metric-op-static" id="loCanvasQpsOp" data-op="gte">≥</span>
-                                    <input type="text" class="lo-metric-input" id="loCanvasQpsValue" placeholder="请输入数值" />
-                                    <button class="lo-metric-btn" id="loCanvasMetricApply">筛选</button>
-                                </div>
-                                <div class="lo-canvas-alert-filter hidden" id="loAlertFilterPanel">
-                                    <span class="lo-alert-chip active" data-filter="all">全部</span>
-                                    <span class="lo-alert-chip lo-alert-chip-error" data-filter="error">限流</span>
-                                    <span class="lo-alert-chip lo-alert-chip-warn" data-filter="warn">预警</span>
-                                    <span class="lo-alert-chip lo-alert-chip-abnormal" data-filter="abnormal">异常</span>
+                                <div class="lo-canvas-toprow-left">
+                                    <div class="lo-canvas-legend">
+                                        <span class="lo-legend-item active" data-filter="all"><span class="lo-legend-dot lo-dot-all"></span>全部 <span class="lo-legend-count" id="loLegendCntAll">0</span></span>
+                                        <span class="lo-legend-item" data-filter="normal"><span class="lo-legend-dot lo-dot-normal"></span>正常 <span class="lo-legend-count" id="loLegendCntNormal">0</span></span>
+                                        <span class="lo-legend-item" data-filter="error"><span class="lo-legend-dot lo-dot-error"></span>限流 <span class="lo-legend-count" id="loLegendCntError">0</span></span>
+                                        <span class="lo-legend-item" data-filter="warn"><span class="lo-legend-dot lo-dot-warn"></span>预警 <span class="lo-legend-count" id="loLegendCntWarn">0</span></span>
+                                        <span class="lo-legend-item" data-filter="abnormal"><span class="lo-legend-dot lo-dot-abnormal"></span>异常 <span class="lo-legend-count" id="loLegendCntAbnormal">0</span></span>
+                                    </div>
+                                    <span class="lo-canvas-toprow-divider"></span>
+                                    <div class="lo-canvas-metric-filter">
+                                        <span class="lo-metric-label">QPS</span>
+                                        <span class="lo-metric-op-static" id="loCanvasQpsOp" data-op="gte">≥</span>
+                                        <input type="text" class="lo-metric-input" id="loCanvasQpsValue" placeholder="请输入数值" />
+                                        <button class="lo-metric-btn" id="loCanvasMetricApply">筛选</button>
+                                    </div>
                                 </div>
                                 <div class="lo-canvas-tools">
                                     <button class="lo-canvas-btn" id="loCanvasLocate" title="节点定位" data-tip="节点定位">
