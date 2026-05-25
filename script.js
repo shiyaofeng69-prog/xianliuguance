@@ -872,7 +872,7 @@ const loTopologyData = {
             psm: 'toutiao.microservice.alarm',
             status: 'error',
             abnormalTraffic: true,
-            abnormalCount: 3,
+            abnormalCount: 1,
             qps: '609.17 req/s',
             vdc: 'Singapore-Central / sg3',
             cluster: 'cluster-b',
@@ -1149,7 +1149,7 @@ function renderLoNode(x, y, node, isTarget) {
         const cy = psmRowY + 2;
         abnTagSvg = `
             <g class="lo-abn-badge">
-                <circle cx="${cx}" cy="${cy}" r="${r}" fill="#ff4d4f" stroke="#ffffff" stroke-width="2"/>
+                <circle cx="${cx}" cy="${cy}" r="${r}" fill="#722ed1" stroke="#ffffff" stroke-width="2"/>
                 <text x="${cx}" y="${cy + 3.5}" text-anchor="middle" fill="#ffffff" font-size="10" font-weight="600">${display}</text>
             </g>
         `;
@@ -1482,7 +1482,7 @@ function openLoNodeDrawer(psm) {
                         <td>${r.type}</td>
                         <td>${r.limit}</td>
                         <td>${r.cpu}</td>
-                        <td><a class="lo-config-action" href="#" data-target="gec" data-psm="${node.psm}">编辑</a></td>
+                        <td><a class="lo-config-action" href="#" data-target="gec" data-psm="${node.psm}">查看</a></td>
                     </tr>`).join('')}
                 </tbody>
             </table>
@@ -1498,7 +1498,7 @@ function openLoNodeDrawer(psm) {
                         <td>${r.type}</td>
                         <td>${r.limit}</td>
                         <td>${r.cpu}</td>
-                        <td><a class="lo-config-action" href="#" data-target="gec" data-psm="${node.psm}">编辑</a></td>
+                        <td><a class="lo-config-action" href="#" data-target="gec" data-psm="${node.psm}">查看</a></td>
                     </tr>`).join('')}
                 </tbody>
             </table>
@@ -1513,7 +1513,7 @@ function openLoNodeDrawer(psm) {
                         <td>${r.iface}</td>
                         <td>${r.limit}</td>
                         <td>${r.cpu}</td>
-                        <td><a class="lo-config-action" href="#" data-target="neptune" data-psm="${node.psm}">编辑</a></td>
+                        <td><a class="lo-config-action" href="#" data-target="neptune" data-psm="${node.psm}">查看</a></td>
                     </tr>`).join('')}
                 </tbody>
             </table>
