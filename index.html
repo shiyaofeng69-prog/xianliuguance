@@ -123,14 +123,21 @@
                 <div class="content-inner">
                     <!-- Page Header -->
                     <div class="page-header">
+                        <button class="btn btn-default lo-back-btn hidden" id="loBackToList">← 返回列表</button>
                         <div class="page-header-text">
                             <h1 class="page-title" id="pageTitle">限流管理</h1>
                             <p class="page-desc" id="pageDesc"></p>
                         </div>
                         <div class="page-header-actions" id="pageHeaderActions">
-                            <button class="btn btn-default lo-config-btn" id="btnHistoryConfig">历史配置</button>
-                            <button class="btn btn-default lo-config-btn" id="btnSaveAsConfig">另存为新配置</button>
-                            <button class="btn btn-success lo-config-btn" id="btnSaveConfig">保存配置</button>
+                            <button class="btn btn-success lo-list-btn" id="btnCreateLink">新建链路</button>
+                            <div class="lo-save-split hidden" id="loSaveSplit">
+                                <button class="btn btn-success lo-save-main" id="btnSaveConfig">保存配置</button>
+                                <button class="btn btn-success lo-save-caret" id="btnSaveCaret" aria-label="保存选项">▾</button>
+                                <div class="lo-save-menu hidden" id="loSaveMenu">
+                                    <div class="lo-save-menu-item" data-save-act="save">保存</div>
+                                    <div class="lo-save-menu-item" data-save-act="saveAs">另存为</div>
+                                </div>
+                            </div>
                         </div>
                     </div>
 
@@ -192,7 +199,72 @@
                         </div>
                     </div>
 
-                    <!-- Link Observation Page -->
+                    <!-- Link List Page (默认入口：已发布链路列表) -->
+                    <div id="linkListPage" class="page-content hidden">
+                        <div class="lo-list-page">
+                            <!-- 筛选区 -->
+                            <div class="lo-list-filter-card">
+                                <div class="lo-list-filter-grid">
+                                    <div class="lo-filter-field">
+                                        <label>链路名称</label>
+                                        <div class="lo-filter-suggest" data-suggest-for="loLinksFName">
+                                            <input type="text" class="form-control" placeholder="请输入链路名称" id="loLinksFName" autocomplete="off">
+                                            <div class="lo-filter-suggest-panel hidden" id="loLinksFNamePanel"></div>
+                                        </div>
+                                    </div>
+                                    <div class="lo-filter-field">
+                                        <label>链路入口</label>
+                                        <div class="lo-filter-suggest" data-suggest-for="loLinksFEntry">
+                                            <input type="text" class="form-control" placeholder="请输入链路入口" id="loLinksFEntry" autocomplete="off">
+                                            <div class="lo-filter-suggest-panel hidden" id="loLinksFEntryPanel"></div>
+                                        </div>
+                                    </div>
+                                    <div class="lo-filter-field">
+                                        <label>优先级</label>
+                                        <select class="form-control" id="loLinksFPriority">
+                                            <option value="">请选择优先级</option>
+                                            <option value="P0">P0</option>
+                                            <option value="P1">P1</option>
+                                            <option value="P2">P2</option>
+                                        </select>
+                                    </div>
+                                    <div class="lo-filter-field lo-filter-field-actions">
+                                        <button class="btn btn-success" id="loLinksSearchBtn">查询</button>
+                                        <button class="btn btn-default" id="loLinksResetBtn">重置</button>
+                                    </div>
+                                </div>
+                            </div>
+                            <!-- 表格 -->
+                            <div class="lo-list-table-card">
+                                <div class="lo-list-table-toolbar">
+                                    <span class="lo-list-table-count" id="loLinksCount">共 0 条</span>
+                                </div>
+                                <div class="table-card">
+                                    <table class="data-table lo-links-table">
+                                        <thead>
+                                            <tr>
+                                                <th>链路名称</th>
+                                                <th>链路入口</th>
+                                                <th>创建人</th>
+                                                <th>拓扑层级</th>
+                                                <th>优先级</th>
+                                                <th>创建时间</th>
+                                                <th class="lo-links-th-action">操作</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody id="loLinksTableBody"></tbody>
+                                    </table>
+                                </div>
+                                <div class="lo-links-empty hidden" id="loLinksEmpty">
+                                    <div class="lo-links-empty-icon">📭</div>
+                                    <div class="lo-links-empty-title">暂无符合条件的链路</div>
+                                    <div class="lo-links-empty-desc">尝试清除筛选条件，或点击右上角「新建链路」</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Link Observation Page (链路工作台：新建 / 查看 / 编辑) -->
                     <div id="linkObservationPage" class="page-content hidden">
                         <!-- Filter Card -->
                         <div class="lo-filter-card">
@@ -200,10 +272,13 @@
                             <div class="lo-filter-row lo-filter-row-grid">
                                 <div class="lo-field-cell">
                                     <label class="lo-field-label"><span class="lo-required">*</span>链路入口</label>
-                                    <div class="searchable-select" data-field="loEntry">
-                                        <input type="text" class="form-control searchable-input lo-select" id="loEntry" placeholder="请选择链路入口 PSM" autocomplete="off">
+                                    <div class="searchable-select lo-cascader-select" data-field="loEntry">
+                                        <input type="text" class="form-control searchable-input lo-select" id="loEntry" placeholder="请选择链路入口 PSM / 接口" autocomplete="off">
                                         <span class="searchable-arrow">▾</span>
-                                        <div class="searchable-dropdown hidden"></div>
+                                        <div class="searchable-dropdown lo-cascader-dropdown hidden">
+                                            <div class="lo-cascader-col lo-cascader-col-svc"></div>
+                                            <div class="lo-cascader-col lo-cascader-col-method"></div>
+                                        </div>
                                     </div>
                                 </div>
                                 <div class="lo-field-cell">
@@ -291,7 +366,7 @@
                         </div>
 
                         <!-- Result Card -->
-                        <div class="lo-result-card">
+                        <div class="lo-result-card" id="loResultCard">
                             <div class="lo-result-header lo-result-header-simple">
                                 <h3 class="lo-result-title-text">链路查询结果</h3>
                                 <div class="lo-view-tabs">
@@ -374,6 +449,7 @@
                                                 <th>流量 Avg</th>
                                                 <th>流量 P99</th>
                                                 <th>CPU 利用率</th>
+                                                <th>操作</th>
                                             </tr>
                                         </thead>
                                         <tbody id="loListTableBody"></tbody>
@@ -734,36 +810,6 @@
         </div>
     </div>
 
-    <!-- History Config Drawer -->
-    <div id="historyConfigDrawer" class="drawer hidden">
-        <div class="drawer-mask" id="historyConfigMask"></div>
-        <div class="drawer-content history-config-drawer">
-            <div class="drawer-header hc-drawer-header">
-                <h2 class="drawer-title">历史配置</h2>
-                <div class="hc-header-actions">
-                    <button class="btn btn-default btn-sm" id="btnBulkOp">批量操作</button>
-                    <button class="drawer-close" id="historyConfigClose">×</button>
-                </div>
-            </div>
-            <!-- 批量操作工具条（默认隐藏） -->
-            <div class="hc-bulk-bar hidden" id="hcBulkBar">
-                <label class="hc-check-label">
-                    <input type="checkbox" id="hcSelectAll"><span>全选</span>
-                </label>
-                <span class="hc-selected-count">已选 <span id="hcSelectedCount">0</span> 项</span>
-                <div class="hc-bulk-bar-right">
-                    <button class="btn btn-danger btn-sm" id="hcBulkDelete">批量删除</button>
-                    <button class="btn btn-default btn-sm" id="hcBulkCancel">退出批量</button>
-                </div>
-            </div>
-            <div class="drawer-body">
-                <div class="hc-list" id="historyConfigList">
-                    <!-- Config items rendered by JS -->
-                </div>
-            </div>
-        </div>
-    </div>
-
     <!-- Link Observation Node Detail Drawer -->
     <div id="loNodeDrawer" class="drawer hidden">
         <div class="drawer-mask" id="loNodeDrawerMask"></div>
@@ -813,6 +859,67 @@
         <div class="lo-image-lightbox-mask"></div>
         <button class="lo-image-lightbox-close" id="loImageLightboxClose" aria-label="关闭">×</button>
         <div class="lo-image-lightbox-content" id="loImageLightboxContent"></div>
+    </div>
+
+    <!-- 保存链路 / 确认抽屉 -->
+    <div class="modal-overlay hidden" id="loSaveDrawer">
+        <div class="modal-drawer lo-save-drawer">
+            <div class="modal-header">
+                <h3 id="loSaveDrawerTitle">新建链路</h3>
+                <button class="modal-close" id="loSaveDrawerClose">×</button>
+            </div>
+            <p class="modal-subtitle">新创建的链路需要 3~5 分钟同步数据，请稍作等待</p>
+            <div class="modal-body">
+                <div class="form-group">
+                    <label><span class="lo-required">*</span>链路名称</label>
+                    <input type="text" class="form-control" id="loSaveName" placeholder="请输入链路名称">
+                </div>
+                <div class="form-group">
+                    <label>链路入口</label>
+                    <input type="text" class="form-control" id="loSaveEntry" readonly>
+                </div>
+                <div class="form-row form-row-3">
+                    <div class="form-group">
+                        <label>VDC</label>
+                        <input type="text" class="form-control" id="loSaveVDC" readonly>
+                    </div>
+                    <div class="form-group">
+                        <label>集群</label>
+                        <input type="text" class="form-control" id="loSaveCluster" readonly>
+                    </div>
+                    <div class="form-group">
+                        <label>时间范围</label>
+                        <input type="text" class="form-control" id="loSaveTimeRange" readonly>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label>拓扑层级</label>
+                    <input type="text" class="form-control" id="loSaveTopology" readonly>
+                </div>
+                <div class="form-row form-row-3">
+                    <div class="form-group">
+                        <label>强弱依赖</label>
+                        <input type="text" class="form-control" id="loSaveDepType" readonly>
+                    </div>
+                    <div class="form-group">
+                        <label>服务优先级</label>
+                        <input type="text" class="form-control" id="loSaveSvcPriority" readonly>
+                    </div>
+                    <div class="form-group">
+                        <label>服务类型</label>
+                        <input type="text" class="form-control" id="loSaveSvcType" readonly>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label>观测粒度</label>
+                    <input type="text" class="form-control" id="loSaveGran" readonly>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-default" id="loSaveDrawerCancel">取消</button>
+                <button class="btn btn-primary" id="loSaveDrawerConfirm">确定</button>
+            </div>
+        </div>
     </div>
 
     <script src="script.js"></script>
