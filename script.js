@@ -129,7 +129,7 @@ function switchPage(pageName) {
         // 默认进入链路列表页（已发布链路）
         document.querySelector('[data-page="link-observation"]').classList.add('active');
         document.getElementById('linkListPage').classList.remove('hidden');
-        document.getElementById('pageTitle').textContent = '链路观测列表';
+        document.getElementById('pageTitle').textContent = '流控观测列表';
         document.getElementById('pageDesc').textContent = '';
         if (pageHeaderActions) pageHeaderActions.classList.add('show');
         if (createBtn) createBtn.classList.remove('hidden');
@@ -614,6 +614,10 @@ function searchList() {
 
 document.addEventListener('DOMContentLoaded', () => {
     renderLimiterTable();
+    // 立即注册全局「外部点击关闭下拉」兜底
+    setupLoLinksOutsideClickClose();
+    // 立即绑定工作台部门树（页面加载即可用）
+    if (typeof bindLoWorkbenchDeptTree === 'function') bindLoWorkbenchDeptTree();
     
     document.querySelectorAll('.menu-item').forEach(item => {
         item.addEventListener('click', () => {
@@ -699,6 +703,26 @@ document.addEventListener('DOMContentLoaded', () => {
     $on('loSaveDrawerClose', 'click', closeLoSaveDrawer);
     $on('loSaveDrawerCancel', 'click', closeLoSaveDrawer);
     $on('loSaveDrawerConfirm', 'click', confirmLoSaveDrawer);
+    // 点击遮罩关闭抽屉
+    const _loSaveDrawer = document.getElementById('loSaveDrawer');
+    if (_loSaveDrawer && !_loSaveDrawer._bound) {
+        _loSaveDrawer._bound = true;
+        _loSaveDrawer.addEventListener('click', (e) => {
+            if (e.target === _loSaveDrawer) closeLoSaveDrawer();
+        });
+    }
+    // ESC 关闭 / Enter 提交（仅当抽屉打开时）
+    if (!document._loSaveDrawerKeyBound) {
+        document._loSaveDrawerKeyBound = true;
+        document.addEventListener('keydown', (e) => {
+            const drawer = document.getElementById('loSaveDrawer');
+            if (!drawer || drawer.classList.contains('hidden')) return;
+            if (e.key === 'Escape') { e.preventDefault(); closeLoSaveDrawer(); }
+            else if (e.key === 'Enter' && document.activeElement?.id === 'loSaveName') {
+                e.preventDefault(); confirmLoSaveDrawer();
+            }
+        });
+    }
 
     // New Link Observation page bindings
     $on('loTabTopology', 'click', () => switchLoView('topology'));
@@ -717,9 +741,22 @@ document.addEventListener('DOMContentLoaded', () => {
         persistLoFilterDraft();
         showToast('已生成结果');
     });
-    $on('loListSearch', 'input', renderLoList);
-    $on('loListStatus', 'change', renderLoList);
-    $on('loListExport', 'click', () => showToast('已导出列表数据'));
+    // 链路查询结果 - 列表视图筛选
+    ['loListFCallerSvc', 'loListFCallerCluster', 'loListFCallerIface', 'loListFCalleeSvc', 'loListFCalleeCluster', 'loListFCalleeIface'].forEach(id => {
+        $on(id, 'input', renderLoList);
+        $on(id, 'keydown', (e) => {
+            if (e.key === 'Enter') renderLoList();
+        });
+    });
+    $on('loListSearchBtn', 'click', renderLoList);
+    $on('loListResetBtn', 'click', () => {
+        ['loListFCallerSvc', 'loListFCallerCluster', 'loListFCallerIface', 'loListFCalleeSvc', 'loListFCalleeCluster', 'loListFCalleeIface'].forEach(id => {
+            const el = document.getElementById(id); if (el) el.value = '';
+        });
+        renderLoList();
+    });
+    // 链路查询结果筛选项 - 下拉搜索建议
+    setupLoListFilterSuggest();
     // 列表视图操作列「查看」按钮：打开节点服务详情抽屉
     const _loListBody = document.getElementById('loListTableBody');
     if (_loListBody && !_loListBody._bound) {
@@ -823,23 +860,7 @@ function initSearchableSelects() {
     };
 
     // 链路入口 服务 → 接口（双联级）映射
-    const loEntryMethodMap = {
-        'toutiao.ms.argos': ['BatchQuery', 'QueryDetail', 'CreateAlert', 'UpdateRule', 'DeleteRule', 'ListAlert', 'AckAlert', 'GetMetric', 'PushMetric', 'StreamMetric'],
-        'ttec.western.mall.event': ['PublishEvent', 'ConsumeEvent', 'AckEvent', 'ListEvent', 'RetryEvent', 'ArchiveEvent', 'GetEventDetail', 'BatchPublish'],
-        'oec.promotion.trade_engine': ['CreateOrder', 'PayOrder', 'CancelOrder', 'QueryOrder', 'ReverseOrder', 'RefundOrder', 'ConfirmReceipt', 'CloseOrder', 'ListOrder', 'BatchQueryOrder'],
-        'oec.operation.product_group': ['ListGroup', 'CreateGroup', 'UpdateGroup', 'DeleteGroup', 'AddMember', 'RemoveMember', 'GetGroupDetail', 'BindRule'],
-        'promotion.points_business': ['Earn', 'Redeem', 'QueryBalance', 'ListHistory', 'Transfer', 'ExpireCheck', 'Adjust'],
-        'toutiao.search.gateway': ['Search', 'Suggest', 'Trending', 'HistoryQuery', 'ClearHistory', 'SearchByTopic'],
-        'toutiao.feed.ranking': ['RankFeed', 'ColdStart', 'WarmUp', 'GetUserProfile', 'UpdateUserVector'],
-        'ecom.payment.cashier': ['CreatePayment', 'QueryPayment', 'ClosePayment', 'Refund', 'BindCard', 'UnbindCard', 'ListMethod'],
-        'ecom.risk.gateway': ['EvalRisk', 'PreCheck', 'PostCheck', 'BlackListAdd', 'BlackListRemove', 'CaseQuery'],
-        'douyin.live.stream': ['StartLive', 'EndLive', 'JoinRoom', 'LeaveRoom', 'SendGift', 'SendComment', 'GetStreamInfo'],
-        'douyin.im.message': ['SendText', 'SendImage', 'RecallMessage', 'PullHistory', 'MarkRead', 'GetUnread'],
-        'lark.calendar.api': ['CreateEvent', 'UpdateEvent', 'DeleteEvent', 'ListEvent', 'AcceptInvite', 'DeclineInvite'],
-        'lark.docs.editor': ['CreateDoc', 'UpdateDoc', 'GetDoc', 'ListDoc', 'ShareDoc', 'CopyDoc', 'ExportDoc'],
-        'tiktok.user.profile': ['GetProfile', 'UpdateProfile', 'Follow', 'Unfollow', 'BlockUser', 'GetFollowers', 'GetFollowing'],
-        'tiktok.video.encode': ['SubmitJob', 'CancelJob', 'QueryJob', 'ListJob', 'RetryJob', 'GetJobLog']
-    };
+    const loEntryMethodMap = window.loEntryMethodMap;
 
     document.querySelectorAll('.searchable-select').forEach(wrapper => {
         const field = wrapper.dataset.field;
@@ -1295,6 +1316,17 @@ function renderLoTopology() {
         });
     });
 
+    // 边点击 → 边详情抽屉
+    svg.querySelectorAll('.lo-edge').forEach(p => {
+        p.style.cursor = 'pointer';
+        p.addEventListener('click', (e) => {
+            e.stopPropagation();
+            const from = p.getAttribute('data-from');
+            const to = p.getAttribute('data-to');
+            openLoEdgeDrawer(from, to);
+        });
+    });
+
     // 更新节点计数
     const cnt = document.getElementById('loCanvasCount');
     if (cnt) cnt.textContent = String(1 + loTopologyData.downstream.length);
@@ -1545,59 +1577,141 @@ function bindLoCanvasLegendChips() {
 function renderLoList() {
     const tbody = document.getElementById('loListTableBody');
     if (!tbody) return;
+    // 根据观测粒度切换列与筛选项的可见性
+    applyLoListGranularityVisibility();
     // 未生成结果时列表清空
     if (!loResultGenerated) {
         tbody.innerHTML = '';
         return;
     }
-    const search = (document.getElementById('loListSearch')?.value || '').toLowerCase().trim();
-    const statusFilter = document.getElementById('loListStatus')?.value || 'all';
-    // 解析限流类型/限流模式（来源于 limitConfig 文本，无则给默认值）
-    const parseLimitInfo = (n) => {
-        const lc = n.limitConfig || '';
-        // 限流值优先取 node.threshold，回退到从 limitConfig 文本提取
-        const limitVal = n.threshold || (lc.match(/阈值\s*([\d.]+\s*k?)/) || ['-', '-'])[1] || '-';
-        const limitType = lc.includes('优先级') ? '优先级限流' : (lc.includes('QPS') ? 'QPS 限流' : 'QPS 限流');
-        const limitMode = '单机限流';
-        return { limitVal, limitType, limitMode };
-    };
-    // 列表的每一行 = 一条调用边：调用方（target）-> 被调用方（downstream 节点 / 当前 target 自身）
-    // 当筛选目标是 target 节点本身时，仍展示为「调用方=target，被调用方=target」？此处只展示真实下游边。
+    const isInterfaceLevel = !!document.querySelector('input[name="loGran"][value="interface"]:checked');
+    const fCallerSvc = (document.getElementById('loListFCallerSvc')?.value || '').toLowerCase().trim();
+    const fCallerCluster = (document.getElementById('loListFCallerCluster')?.value || '').toLowerCase().trim();
+    const fCallerIface = isInterfaceLevel ? (document.getElementById('loListFCallerIface')?.value || '').toLowerCase().trim() : '';
+    const fCalleeSvc = (document.getElementById('loListFCalleeSvc')?.value || '').toLowerCase().trim();
+    const fCalleeCluster = (document.getElementById('loListFCalleeCluster')?.value || '').toLowerCase().trim();
+    const fCalleeIface = isInterfaceLevel ? (document.getElementById('loListFCalleeIface')?.value || '').toLowerCase().trim() : '';
+
     const callerSvc = loTopologyData.target.psm;
     const callerCluster = loTopologyData.target.cluster || '-';
+    const callerIface = loTopologyData.target.invokeMethod || '-';
     const edges = loTopologyData.downstream.map(n => ({ caller: loTopologyData.target, callee: n }));
     const filteredEdges = edges.filter(({ callee: n }) => {
-        if (statusFilter !== 'all' && n.status !== statusFilter) return false;
-        if (search) {
-            const hay = `${callerSvc} ${n.psm} ${n.invokeMethod || ''}`.toLowerCase();
-            if (!hay.includes(search)) return false;
-        }
+        const calleeSvc = (n.psm || '').toLowerCase();
+        const calleeCluster = (n.cluster || '').toLowerCase();
+        const calleeIface = (n.invokeMethod || '').toLowerCase();
+        const callerSvcLow = callerSvc.toLowerCase();
+        const callerClusterLow = callerCluster.toLowerCase();
+        const callerIfaceLow = callerIface.toLowerCase();
+        if (fCallerSvc && !callerSvcLow.includes(fCallerSvc)) return false;
+        if (fCallerCluster && !callerClusterLow.includes(fCallerCluster)) return false;
+        if (fCallerIface && !callerIfaceLow.includes(fCallerIface)) return false;
+        if (fCalleeSvc && !calleeSvc.includes(fCalleeSvc)) return false;
+        if (fCalleeCluster && !calleeCluster.includes(fCalleeCluster)) return false;
+        if (fCalleeIface && !calleeIface.includes(fCalleeIface)) return false;
         return true;
     });
 
     tbody.innerHTML = filteredEdges.map(({ callee: n }) => {
-        const info = parseLimitInfo(n);
         const method = n.invokeMethod || '-';
-        return `
-        <tr>
-            <td><span class="lo-list-cell-ellipsis" data-fullname="${callerSvc}">${callerSvc}</span></td>
-            <td>${callerCluster}</td>
-            <td><span class="lo-list-cell-ellipsis" data-fullname="${n.psm}">${n.psm}</span></td>
-            <td>${n.cluster || '-'}</td>
-            <td><span class="lo-list-cell-ellipsis" data-fullname="${method}">${method}</span></td>
-            <td>${info.limitVal}</td>
-            <td>${info.limitType}</td>
-            <td>${info.limitMode}</td>
-            <td>${n.peakQps || '-'}</td>
-            <td>${n.currentQps || '-'}</td>
-            <td>${n.p99 || '-'}</td>
-            <td>${n.cpu || '-'}</td>
-            <td><button class="btn-link lo-list-view-btn" data-psm="${n.psm}">查看</button></td>
-        </tr>
-    `; }).join('') || `<tr><td colspan="13" style="text-align:center;color:#999;padding:24px">暂无匹配数据</td></tr>`;
+        const cells = [
+            `<td><span class="lo-list-cell-ellipsis" data-fullname="${callerSvc}">${callerSvc}</span></td>`,
+            `<td>${callerCluster}</td>`,
+            `<td class="lo-list-col-callerIface"><span class="lo-list-cell-ellipsis" data-fullname="${callerIface}">${callerIface}</span></td>`,
+            `<td><span class="lo-list-cell-ellipsis" data-fullname="${n.psm}">${n.psm}</span></td>`,
+            `<td>${n.cluster || '-'}</td>`,
+            `<td class="lo-list-col-calleeIface"><span class="lo-list-cell-ellipsis" data-fullname="${method}">${method}</span></td>`,
+            `<td>${n.peakQps || '-'}</td>`,
+            `<td>${n.currentQps || '-'}</td>`,
+            `<td>${n.p99 || '-'}</td>`,
+            `<td><button class="btn-link lo-list-view-btn" data-psm="${n.psm}">查看</button></td>`
+        ].join('');
+        return `<tr>${cells}</tr>`;
+    }).join('') || `<tr><td colspan="10" style="text-align:center;color:#999;padding:24px">暂无匹配数据</td></tr>`;
 }
 
+// 链路查询结果列表 - 根据观测粒度切换列与筛选项可见性
+function applyLoListGranularityVisibility() {
+    const isInterfaceLevel = !!document.querySelector('input[name="loGran"][value="interface"]:checked');
+    const root = document.getElementById('loListView');
+    if (!root) return;
+    root.classList.toggle('lo-list-mode-iface', isInterfaceLevel);
+    root.classList.toggle('lo-list-mode-svc', !isInterfaceLevel);
+    // 服务粒度时清空隐藏的接口筛选输入，避免「看不见但仍生效」
+    if (!isInterfaceLevel) {
+        const ci = document.getElementById('loListFCallerIface');
+        const ce = document.getElementById('loListFCalleeIface');
+        if (ci) ci.value = '';
+        if (ce) ce.value = '';
+    }
+}
+
+// 监听观测粒度切换：实时同步列表/筛选项的列结构
+(function bindLoListGranWatcher() {
+    if (window._loListGranBound) return;
+    window._loListGranBound = true;
+    document.addEventListener('change', (e) => {
+        const t = e.target;
+        if (t && t.matches && t.matches('input[name="loGran"]')) {
+            if (typeof renderLoList === 'function') renderLoList();
+        }
+    });
+})();
+
 /* ============= 链路列表（已发布链路） ============= */
+// 链路入口 服务 → 接口（双联级）映射 - 提到全局以供列表筛选复用
+window.loEntryMethodMap = {
+    'toutiao.ms.argos': ['BatchQuery', 'QueryDetail', 'CreateAlert', 'UpdateRule', 'DeleteRule', 'ListAlert', 'AckAlert', 'GetMetric', 'PushMetric', 'StreamMetric'],
+    'ttec.western.mall.event': ['PublishEvent', 'ConsumeEvent', 'AckEvent', 'ListEvent', 'RetryEvent', 'ArchiveEvent', 'GetEventDetail', 'BatchPublish'],
+    'oec.promotion.trade_engine': ['CreateOrder', 'PayOrder', 'CancelOrder', 'QueryOrder', 'ReverseOrder', 'RefundOrder', 'ConfirmReceipt', 'CloseOrder', 'ListOrder', 'BatchQueryOrder'],
+    'oec.operation.product_group': ['ListGroup', 'CreateGroup', 'UpdateGroup', 'DeleteGroup', 'AddMember', 'RemoveMember', 'GetGroupDetail', 'BindRule'],
+    'promotion.points_business': ['Earn', 'Redeem', 'QueryBalance', 'ListHistory', 'Transfer', 'ExpireCheck', 'Adjust'],
+    'toutiao.search.gateway': ['Search', 'Suggest', 'Trending', 'HistoryQuery', 'ClearHistory', 'SearchByTopic'],
+    'toutiao.feed.ranking': ['RankFeed', 'ColdStart', 'WarmUp', 'GetUserProfile', 'UpdateUserVector'],
+    'ecom.payment.cashier': ['CreatePayment', 'QueryPayment', 'ClosePayment', 'Refund', 'BindCard', 'UnbindCard', 'ListMethod'],
+    'ecom.risk.gateway': ['EvalRisk', 'PreCheck', 'PostCheck', 'BlackListAdd', 'BlackListRemove', 'CaseQuery'],
+    'douyin.live.stream': ['StartLive', 'EndLive', 'JoinRoom', 'LeaveRoom', 'SendGift', 'SendComment', 'GetStreamInfo'],
+    'douyin.im.message': ['SendText', 'SendImage', 'RecallMessage', 'PullHistory', 'MarkRead', 'GetUnread'],
+    'lark.calendar.api': ['CreateEvent', 'UpdateEvent', 'DeleteEvent', 'ListEvent', 'AcceptInvite', 'DeclineInvite'],
+    'lark.docs.editor': ['CreateDoc', 'UpdateDoc', 'GetDoc', 'ListDoc', 'ShareDoc', 'CopyDoc', 'ExportDoc'],
+    'tiktok.user.profile': ['GetProfile', 'UpdateProfile', 'Follow', 'Unfollow', 'BlockUser', 'GetFollowers', 'GetFollowing'],
+    'tiktok.video.encode': ['SubmitJob', 'CancelJob', 'QueryJob', 'ListJob', 'RetryJob', 'GetJobLog'],
+    'ttec.cart.sapi': ['GetCart', 'AddCart', 'RemoveCart', 'UpdateCart', 'ClearCart']
+};
+
+// 部门组织架构（树形）
+const loDeptTree = [
+    {
+        name: 'GEC', children: [
+            {
+                name: 'GEC-业务平台', children: [
+                    { name: 'GEC-业务平台-开放平台' },
+                    { name: 'GEC-业务平台-研发架构' },
+                    { name: 'GEC-业务平台-解决方案' },
+                    { name: 'GEC-业务平台-营销平台', children: [
+                        { name: 'GEC-业务平台-营销平台-促销中心' },
+                        { name: 'GEC-业务平台-营销平台-优惠券中心' }
+                    ] },
+                    { name: 'GEC-业务平台-搜索' }
+                ]
+            },
+            {
+                name: '产品研发和工程架构-GEC', children: [
+                    { name: '产品研发和工程架构-GEC-基础架构' },
+                    { name: '产品研发和工程架构-GEC-质量与稳定性' }
+                ]
+            }
+        ]
+    },
+    {
+        name: '电商-OEC', children: [
+            { name: '电商-OEC-交易' },
+            { name: '电商-OEC-营销' },
+            { name: '电商-OEC-支付' }
+        ]
+    }
+];
+
 const loUserLinks = [
     {
         id: 'link-1', name: '全渠道_进入购物车-ttec.cart.sapi:default::GetCart',
@@ -1635,7 +1749,7 @@ const loUserLinks = [
         entryPsm: 'oec.shop.sapi', entryMethod: 'GetBillInfo',
         granularity: 'interface',
         dept: 'GEC-业务平台-研发架构',
-        tag: '基础', priority: 'P2', owner: '吕文杰',
+        tag: '基础', priority: 'P2', owner: '当前用户',
         topology: '向上1层 / 向下1层',
         nodes: 6, edges: 7,
         status: 'safe', alertCount: 0, peakQps: '1.2k req/s',
@@ -1691,7 +1805,8 @@ const loUserLinks = [
     }
 ];
 
-const loLinksState = { name: '', entry: '', priority: '' };
+const loLinksState = { name: '', entry: '', dept: '', priority: '', creator: '' };
+let loLinksTab = 'all'; // 'all' | 'mine'
 // 工作台模式：create | view | edit | copy
 const loWorkbenchState = { mode: 'create', editingId: null };
 
@@ -1720,10 +1835,14 @@ function renderLoLinks() {
     if (!tbody) return;
 
     const s = loLinksState;
+    const currentUser = '当前用户';
     const filtered = loUserLinks.filter(l => {
+        if (loLinksTab === 'mine' && (l.owner || '') !== currentUser) return false;
         if (s.name && !l.name.toLowerCase().includes(s.name.toLowerCase())) return false;
         if (s.entry && !(l.entry || '').toLowerCase().includes(s.entry.toLowerCase())) return false;
+        if (s.dept && !(l.dept || '').includes(s.dept)) return false;
         if (s.priority && l.priority !== s.priority) return false;
+        if (s.creator && !(l.owner || '').toLowerCase().includes(s.creator.toLowerCase())) return false;
         return true;
     });
 
@@ -1739,12 +1858,20 @@ function renderLoLinks() {
     const cnt = document.getElementById('loLinksCount');
     if (cnt) cnt.textContent = `共 ${filtered.length} 条`;
 
-    tbody.innerHTML = filtered.map(l => `
-        <tr class="lo-links-row" data-link-id="${l.id}">
+    tbody.innerHTML = filtered.map(l => {
+        // 链路入口：psm名称 < 接口名称
+        const entryDisp = l.entryMethod
+            ? `${l.entryPsm} &lt; ${l.entryMethod}`
+            : (l.entry || '-');
+        // 创建时间补秒
+        const ct = (l.createTime || '').length === 16 ? (l.createTime + ':00') : (l.createTime || '-');
+        return `
+        <tr class="lo-links-row${l.id === loSaveDrawerState.lastSavedId ? ' lo-links-row-flash' : ''}" data-link-id="${l.id}">
             <td class="lo-links-name-cell">
-                <span class="lo-links-name" data-fullname="${l.name}">${l.name}</span>
+                <span class="lo-list-cell-ellipsis lo-links-name" data-fullname="${l.name}">${l.name}</span>
             </td>
-            <td><span class="lo-links-entry">${l.entry}</span></td>
+            <td><span class="lo-list-cell-ellipsis lo-links-entry" data-fullname="${(l.entryPsm || '') + (l.entryMethod ? ' < ' + l.entryMethod : '')}">${entryDisp}</span></td>
+            <td><span class="lo-list-cell-ellipsis lo-links-dept" data-fullname="${l.dept || ''}">${l.dept || '-'}</span></td>
             <td>
                 <span class="lo-links-owner">
                     <span class="lo-links-avatar" style="background:${avatarColor(l.owner)}">${avatarText(l.owner)}</span>
@@ -1753,12 +1880,13 @@ function renderLoLinks() {
             </td>
             <td><span class="lo-links-topo">${l.topology}</span></td>
             <td><span class="lo-links-priority lo-links-priority-${l.priority}">${l.priority}</span></td>
-            <td><span class="lo-links-time">${l.createTime || '-'}</span></td>
+            <td><span class="lo-links-time">${ct}</span></td>
             <td class="lo-links-td-action">
-                <button class="btn btn-default small lo-links-act-btn" data-act="view" data-link-id="${l.id}">详情</button>
+                <button class="lo-links-act-link" data-act="view" data-link-id="${l.id}">详情</button>
+                <button class="lo-links-act-link lo-links-act-link-danger" data-act="delete" data-link-id="${l.id}">删除</button>
             </td>
         </tr>
-    `).join('');
+    `; }).join('');
 
     bindLoLinksEvents();
 }
@@ -1768,8 +1896,14 @@ function bindLoLinksEvents() {
     if (!view || view._loLinksBound) return;
     view._loLinksBound = true;
 
-    const ids = ['loLinksFName', 'loLinksFEntry', 'loLinksFPriority'];
-    const map = { loLinksFName: 'name', loLinksFEntry: 'entry', loLinksFPriority: 'priority' };
+    const ids = ['loLinksFName', 'loLinksFEntry', 'loLinksFDept', 'loLinksFPriority', 'loLinksFCreator'];
+    const map = {
+        loLinksFName: 'name',
+        loLinksFEntry: 'entry',
+        loLinksFDept: 'dept',
+        loLinksFPriority: 'priority',
+        loLinksFCreator: 'creator'
+    };
     ids.forEach(id => {
         const el = document.getElementById(id);
         if (!el) return;
@@ -1779,9 +1913,16 @@ function bindLoLinksEvents() {
         });
     });
 
-    // 链路名称 / 链路入口 联想下拉
-    bindLoLinksSuggest('loLinksFName', 'name');
-    bindLoLinksSuggest('loLinksFEntry', 'entry');
+    // 链路名称 / 创建人 联想下拉
+    bindLoLinksSuggest('loLinksFName', 'name', 'name');
+    bindLoLinksSuggest('loLinksFCreator', 'creator', 'owner');
+    // 链路入口 级联下拉（PSM → 接口）
+    bindLoLinksEntryCascade();
+    // 部门 树形下拉
+    bindLoLinksDeptTree();
+
+    // 全局兜底：用 capture 阶段的 mousedown，点击容器外即关闭所有面板
+    setupLoLinksOutsideClickClose();
 
     const searchBtn = document.getElementById('loLinksSearchBtn');
     if (searchBtn) searchBtn.addEventListener('click', renderLoLinks);
@@ -1790,7 +1931,8 @@ function bindLoLinksEvents() {
     if (resetBtn) {
         resetBtn.addEventListener('click', () => {
             ids.forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
-            loLinksState.name = ''; loLinksState.entry = ''; loLinksState.priority = '';
+            loLinksState.name = ''; loLinksState.entry = '';
+            loLinksState.dept = ''; loLinksState.priority = ''; loLinksState.creator = '';
             renderLoLinks();
         });
     }
@@ -1801,17 +1943,36 @@ function bindLoLinksEvents() {
         createBtn.addEventListener('click', () => enterWorkbench('create'));
     }
 
+    // 列表 tab 切换
+    document.querySelectorAll('#linkListPage .lo-list-tab').forEach(tab => {
+        if (tab._bound) return;
+        tab._bound = true;
+        tab.addEventListener('click', () => {
+            const t = tab.getAttribute('data-list-tab') || 'all';
+            loLinksTab = t;
+            document.querySelectorAll('#linkListPage .lo-list-tab').forEach(o => o.classList.toggle('active', o === tab));
+            renderLoLinks();
+        });
+    });
+
     const tbody = document.getElementById('loLinksTableBody');
     if (tbody) {
         tbody.addEventListener('click', (e) => {
-            const act = e.target.closest('.lo-links-act-btn');
+            const act = e.target.closest('.lo-links-act-link');
             if (!act) return;
             const id = act.getAttribute('data-link-id');
             const link = loUserLinks.find(l => l.id === id);
             if (!link) return;
             const action = act.getAttribute('data-act');
-            if (action === 'view') enterWorkbench('edit', link);
-            else if (action === 'edit') enterWorkbench('edit', link);
+            if (action === 'view' || action === 'edit') enterWorkbench('edit', link);
+            else if (action === 'delete') {
+                openLoDeleteConfirm(link, () => {
+                    const idx = loUserLinks.findIndex(l => l.id === id);
+                    if (idx > -1) loUserLinks.splice(idx, 1);
+                    renderLoLinks();
+                    if (typeof showToast === 'function') showToast('链路已删除');
+                });
+            }
         });
 
         tbody.addEventListener('mouseover', (e) => {
@@ -1825,11 +1986,99 @@ function bindLoLinksEvents() {
     }
 }
 
-// 链路名称 / 链路入口 联想下拉
-function bindLoLinksSuggest(inputId, field) {
+// 删除链路 - 自定义确认弹窗
+let _loDeleteConfirmCb = null;
+function openLoDeleteConfirm(link, onConfirm) {
+    const overlay = document.getElementById('loDeleteConfirm');
+    const target = document.getElementById('loDeleteConfirmTarget');
+    if (!overlay || !target) return;
+    _loDeleteConfirmCb = onConfirm;
+    target.innerHTML = `
+        <div class="lo-confirm-target-row"><span class="lo-confirm-target-label">观测视图名称</span><span class="lo-confirm-target-value" title="${link.name}">${link.name}</span></div>
+        <div class="lo-confirm-target-row"><span class="lo-confirm-target-label">链路入口</span><span class="lo-confirm-target-value">${link.entryPsm || ''}${link.entryMethod ? ' &lt; ' + link.entryMethod : ''}</span></div>
+        <div class="lo-confirm-target-row"><span class="lo-confirm-target-label">创建人</span><span class="lo-confirm-target-value">${link.owner || '-'}</span></div>
+    `;
+    overlay.classList.remove('hidden');
+    setTimeout(() => document.getElementById('loDeleteConfirmCancel')?.focus(), 30);
+    bindLoDeleteConfirmEvents();
+}
+
+function closeLoDeleteConfirm() {
+    document.getElementById('loDeleteConfirm')?.classList.add('hidden');
+    _loDeleteConfirmCb = null;
+}
+
+function bindLoDeleteConfirmEvents() {
+    const overlay = document.getElementById('loDeleteConfirm');
+    if (!overlay || overlay._bound) return;
+    overlay._bound = true;
+    document.getElementById('loDeleteConfirmCancel')?.addEventListener('click', closeLoDeleteConfirm);
+    document.getElementById('loDeleteConfirmOk')?.addEventListener('click', () => {
+        const cb = _loDeleteConfirmCb;
+        closeLoDeleteConfirm();
+        if (typeof cb === 'function') cb();
+    });
+    // 点遮罩关闭
+    overlay.addEventListener('click', (e) => {
+        if (e.target === overlay) closeLoDeleteConfirm();
+    });
+    // ESC 关闭 / Enter 确认
+    document.addEventListener('keydown', (e) => {
+        if (overlay.classList.contains('hidden')) return;
+        if (e.key === 'Escape') { e.preventDefault(); closeLoDeleteConfirm(); }
+        else if (e.key === 'Enter') {
+            e.preventDefault();
+            document.getElementById('loDeleteConfirmOk')?.click();
+        }
+    });
+}
+
+
+// 全局兜底：点击下拉容器外部时关闭所有列表筛选下拉面板
+function setupLoLinksOutsideClickClose() {
+    if (document._loLinksFilterCloseBound) return;
+    document._loLinksFilterCloseBound = true;
+
+    const SELECTORS = '#linkListPage .lo-filter-suggest, #linkListPage .lo-filter-cascade, #linkListPage .lo-filter-tree, #loDeptWrap';
+    const PANELS = '#linkListPage .lo-filter-suggest-panel, #linkListPage .lo-filter-cascade-panel, #linkListPage .lo-filter-tree-panel, #loDeptPanel';
+
+    const closeAllFilterPanels = () => {
+        document.querySelectorAll(PANELS).forEach(p => {
+            if (!p.classList.contains('hidden')) p.classList.add('hidden');
+        });
+        ['loLinksFName', 'loLinksFEntry', 'loLinksFDept', 'loLinksFCreator', 'loDept'].forEach(id => {
+            const el = document.getElementById(id);
+            if (el && document.activeElement === el) el.blur();
+        });
+    };
+
+    // pointerdown 捕获阶段，确保在所有组件 mousedown 之前判断
+    document.addEventListener('pointerdown', (e) => {
+        const inside = e.target.closest(SELECTORS);
+        if (!inside) closeAllFilterPanels();
+    }, true);
+
+    // 滚动时关闭（防止下拉漂离输入框）
+    window.addEventListener('scroll', closeAllFilterPanels, true);
+    window.addEventListener('resize', closeAllFilterPanels);
+
+    // ESC 关闭
+    document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape') closeAllFilterPanels();
+    });
+
+    // 暴露给其他场景调用
+    window.closeAllLoLinksFilterPanels = closeAllFilterPanels;
+}
+
+
+// 链路名称 / 创建人 联想下拉
+function bindLoLinksSuggest(inputId, stateField, dataField) {
     const input = document.getElementById(inputId);
     const panel = document.getElementById(inputId + 'Panel');
-    if (!input || !panel) return;
+    if (!input || !panel || input._bound) return;
+    input._bound = true;
+    const linkField = dataField || stateField;
 
     const renderPanel = () => {
         const kw = (input.value || '').trim().toLowerCase();
@@ -1837,7 +2086,7 @@ function bindLoLinksSuggest(inputId, field) {
         const seen = new Set();
         const list = [];
         loUserLinks.forEach(l => {
-            const v = l[field];
+            const v = l[linkField];
             if (!v || seen.has(v)) return;
             seen.add(v);
             if (kw && !v.toLowerCase().includes(kw)) return;
@@ -1858,8 +2107,12 @@ function bindLoLinksSuggest(inputId, field) {
 
     input.addEventListener('focus', renderPanel);
     input.addEventListener('input', () => {
-        loLinksState[field] = input.value;
+        loLinksState[stateField] = input.value;
         renderPanel();
+    });
+    input.addEventListener('blur', () => {
+        // 延迟关闭，确保 panel 内 mousedown 选项能先处理
+        setTimeout(() => panel.classList.add('hidden'), 150);
     });
     panel.addEventListener('mousedown', (e) => {
         const item = e.target.closest('.lo-filter-suggest-item');
@@ -1867,13 +2120,243 @@ function bindLoLinksSuggest(inputId, field) {
         e.preventDefault();
         const v = item.getAttribute('data-val');
         input.value = v;
-        loLinksState[field] = v;
+        loLinksState[stateField] = v;
         panel.classList.add('hidden');
     });
-    document.addEventListener('click', (e) => {
-        if (e.target === input) return;
-        if (panel.contains(e.target)) return;
-        panel.classList.add('hidden');
+}
+
+// 链路入口 级联下拉（PSM → 接口）
+function bindLoLinksEntryCascade() {
+    const input = document.getElementById('loLinksFEntry');
+    const panel = document.getElementById('loLinksFEntryPanel');
+    const wrap = document.getElementById('loLinksFEntryWrap');
+    if (!input || !panel || !wrap || wrap._bound) return;
+    wrap._bound = true;
+
+    let activeSvc = null;
+    const svcList = Object.keys(window.loEntryMethodMap || {});
+
+    const render = () => {
+        const methods = activeSvc ? (window.loEntryMethodMap[activeSvc] || []) : [];
+        const svcCol = svcList.map(s => `
+            <div class="lo-cas-item${s === activeSvc ? ' active' : ''}" data-svc="${s}">
+                <span class="lo-cas-label">${s}</span>
+                <span class="lo-cas-arrow">›</span>
+            </div>
+        `).join('');
+        const methodCol = activeSvc
+            ? methods.map(m => `<div class="lo-cas-item lo-cas-method" data-method="${m}">${m}</div>`).join('')
+            : '<div class="lo-cas-empty">请先选择服务</div>';
+        panel.innerHTML = `
+            <div class="lo-cas-col lo-cas-col-svc">${svcCol}</div>
+            <div class="lo-cas-col lo-cas-col-method">${methodCol}</div>
+        `;
+    };
+
+    const open = () => { render(); panel.classList.remove('hidden'); };
+    const close = () => panel.classList.add('hidden');
+
+    input.addEventListener('focus', open);
+    input.addEventListener('click', open);
+    input.addEventListener('blur', () => {
+        setTimeout(() => panel.classList.add('hidden'), 150);
+    });
+
+    panel.addEventListener('mousedown', (e) => {
+        const svcItem = e.target.closest('[data-svc]');
+        const methodItem = e.target.closest('[data-method]');
+        if (svcItem) {
+            e.preventDefault();
+            activeSvc = svcItem.getAttribute('data-svc');
+            render();
+            // 防止 input blur 关闭
+            setTimeout(() => input.focus(), 0);
+            return;
+        }
+        if (methodItem && activeSvc) {
+            e.preventDefault();
+            const method = methodItem.getAttribute('data-method');
+            const val = `${activeSvc} / ${method}`;
+            input.value = val;
+            loLinksState.entry = val;
+            close();
+        }
+    });
+}
+
+// 部门 树形下拉
+function bindLoLinksDeptTree() {
+    const input = document.getElementById('loLinksFDept');
+    const panel = document.getElementById('loLinksFDeptPanel');
+    const wrap = document.getElementById('loLinksFDeptWrap');
+    if (!input || !panel || !wrap || wrap._bound) return;
+    wrap._bound = true;
+
+    const expanded = new Set();
+
+    const renderTree = (nodes, depth) => {
+        return nodes.map(node => {
+            const hasChildren = node.children && node.children.length;
+            const isOpen = expanded.has(node.name);
+            const arrow = hasChildren ? `<span class="lo-tree-arrow${isOpen ? ' open' : ''}">▸</span>` : '<span class="lo-tree-arrow-placeholder"></span>';
+            return `
+                <div class="lo-tree-node" data-name="${node.name}" data-has-children="${hasChildren ? '1' : '0'}" style="padding-left:${depth * 16}px">
+                    ${arrow}<span class="lo-tree-label">${node.name}</span>
+                </div>
+                ${hasChildren && isOpen ? `<div class="lo-tree-children">${renderTree(node.children, depth + 1)}</div>` : ''}
+            `;
+        }).join('');
+    };
+
+    const render = () => {
+        panel.innerHTML = `
+            <div class="lo-tree-search">
+                <input type="text" class="form-control lo-tree-search-input" placeholder="请选择部门" id="loLinksFDeptSearch">
+            </div>
+            <div class="lo-tree-body">${renderTree(loDeptTree, 0)}</div>
+        `;
+        const searchInput = panel.querySelector('#loLinksFDeptSearch');
+        if (searchInput) {
+            searchInput.addEventListener('input', () => {
+                const kw = searchInput.value.trim().toLowerCase();
+                const body = panel.querySelector('.lo-tree-body');
+                if (!body) return;
+                if (!kw) { body.innerHTML = renderTree(loDeptTree, 0); return; }
+                const flat = [];
+                const collect = (nodes) => nodes.forEach(n => { flat.push(n); if (n.children) collect(n.children); });
+                collect(loDeptTree);
+                const matched = flat.filter(n => n.name.toLowerCase().includes(kw));
+                body.innerHTML = matched.length
+                    ? matched.map(n => `<div class="lo-tree-node" data-name="${n.name}" data-has-children="0"><span class="lo-tree-arrow-placeholder"></span><span class="lo-tree-label">${n.name}</span></div>`).join('')
+                    : '<div class="lo-cas-empty">未匹配到部门</div>';
+            });
+        }
+    };
+
+    const open = () => { render(); panel.classList.remove('hidden'); };
+    const close = () => panel.classList.add('hidden');
+
+    input.addEventListener('focus', open);
+    input.addEventListener('click', open);
+    input.addEventListener('blur', () => {
+        setTimeout(() => {
+            // 如果焦点已经落在 panel 内（搜索框 / 子节点），不关闭
+            if (panel.contains(document.activeElement)) return;
+            panel.classList.add('hidden');
+        }, 200);
+    });
+
+    panel.addEventListener('mousedown', (e) => {
+        // 点击搜索框不关闭
+        if (e.target.closest('.lo-tree-search-input')) return;
+        const node = e.target.closest('.lo-tree-node');
+        if (!node) {
+            // 阻止 input blur 关闭面板（点空白处）
+            e.preventDefault();
+            setTimeout(() => input.focus(), 0);
+            return;
+        }
+        e.preventDefault();
+        const name = node.getAttribute('data-name');
+        const hasChildren = node.getAttribute('data-has-children') === '1';
+        if (hasChildren) {
+            // 切换展开
+            if (expanded.has(name)) expanded.delete(name);
+            else expanded.add(name);
+            const body = panel.querySelector('.lo-tree-body');
+            if (body) body.innerHTML = renderTree(loDeptTree, 0);
+            setTimeout(() => input.focus(), 0);
+            return;
+        }
+        // 选中叶子
+        input.value = name;
+        loLinksState.dept = name;
+        close();
+    });
+}
+
+// 工作台 部门 树形下拉（与列表页 bindLoLinksDeptTree 同构，挂在 loDept / loDeptPanel）
+function bindLoWorkbenchDeptTree() {
+    const input = document.getElementById('loDept');
+    const panel = document.getElementById('loDeptPanel');
+    const wrap = document.getElementById('loDeptWrap');
+    if (!input || !panel || !wrap || wrap._bound) return;
+    wrap._bound = true;
+
+    const expanded = new Set();
+
+    const renderTree = (nodes, depth) => {
+        return nodes.map(node => {
+            const hasChildren = node.children && node.children.length;
+            const isOpen = expanded.has(node.name);
+            const arrow = hasChildren ? `<span class="lo-tree-arrow${isOpen ? ' open' : ''}">▸</span>` : '<span class="lo-tree-arrow-placeholder"></span>';
+            return `
+                <div class="lo-tree-node" data-name="${node.name}" data-has-children="${hasChildren ? '1' : '0'}" style="padding-left:${depth * 16}px">
+                    ${arrow}<span class="lo-tree-label">${node.name}</span>
+                </div>
+                ${hasChildren && isOpen ? `<div class="lo-tree-children">${renderTree(node.children, depth + 1)}</div>` : ''}
+            `;
+        }).join('');
+    };
+
+    const render = () => {
+        panel.innerHTML = `
+            <div class="lo-tree-search">
+                <input type="text" class="form-control lo-tree-search-input" placeholder="请选择部门" id="loDeptSearch">
+            </div>
+            <div class="lo-tree-body">${renderTree(loDeptTree, 0)}</div>
+        `;
+        const searchInput = panel.querySelector('#loDeptSearch');
+        if (searchInput) {
+            searchInput.addEventListener('input', () => {
+                const kw = searchInput.value.trim().toLowerCase();
+                const body = panel.querySelector('.lo-tree-body');
+                if (!body) return;
+                if (!kw) { body.innerHTML = renderTree(loDeptTree, 0); return; }
+                const flat = [];
+                const collect = (nodes) => nodes.forEach(n => { flat.push(n); if (n.children) collect(n.children); });
+                collect(loDeptTree);
+                const matched = flat.filter(n => n.name.toLowerCase().includes(kw));
+                body.innerHTML = matched.length
+                    ? matched.map(n => `<div class="lo-tree-node" data-name="${n.name}" data-has-children="0"><span class="lo-tree-arrow-placeholder"></span><span class="lo-tree-label">${n.name}</span></div>`).join('')
+                    : '<div class="lo-cas-empty">未匹配到部门</div>';
+            });
+        }
+    };
+
+    const open = () => { render(); panel.classList.remove('hidden'); };
+    const close = () => panel.classList.add('hidden');
+
+    input.addEventListener('focus', open);
+    input.addEventListener('click', open);
+    input.addEventListener('blur', () => {
+        setTimeout(() => {
+            if (panel.contains(document.activeElement)) return;
+            panel.classList.add('hidden');
+        }, 200);
+    });
+
+    panel.addEventListener('mousedown', (e) => {
+        if (e.target.closest('.lo-tree-search-input')) return;
+        const node = e.target.closest('.lo-tree-node');
+        if (!node) {
+            e.preventDefault();
+            setTimeout(() => input.focus(), 0);
+            return;
+        }
+        e.preventDefault();
+        const name = node.getAttribute('data-name');
+        const hasChildren = node.getAttribute('data-has-children') === '1';
+        if (hasChildren) {
+            if (expanded.has(name)) expanded.delete(name);
+            else expanded.add(name);
+            const body = panel.querySelector('.lo-tree-body');
+            if (body) body.innerHTML = renderTree(loDeptTree, 0);
+            setTimeout(() => input.focus(), 0);
+            return;
+        }
+        input.value = name;
+        close();
     });
 }
 
@@ -1884,7 +2367,7 @@ function enterWorkbench(mode, link) {
     // 在 switchPage 之前先把 pageTitle 设置为目标值（避免任何覆盖）
     const titleEl = document.getElementById('pageTitle');
     if (titleEl) {
-        if (mode === 'create') titleEl.textContent = '新建链路';
+        if (mode === 'create') titleEl.textContent = '新建观测视图';
         else if (mode === 'view' && link) titleEl.textContent = link.name;
         else if (mode === 'edit' && link) titleEl.textContent = link.name;
         else if (mode === 'copy' && link) titleEl.textContent = `${link.name}（副本）`;
@@ -1892,6 +2375,8 @@ function enterWorkbench(mode, link) {
     switchPage('link-workbench');
     // 同步设置标题/按钮
     applyWorkbenchModeMeta(mode, link);
+    // 绑定部门树下拉（确保进入工作台后下拉可用）
+    if (typeof bindLoWorkbenchDeptTree === 'function') bindLoWorkbenchDeptTree();
     // 同步回填表单（DOM 此时已可见）
     if (link && mode !== 'create' && typeof applyLoLinkToFilters === 'function') {
         applyLoLinkToFilters(link);
@@ -1914,7 +2399,7 @@ function applyWorkbenchModeMeta(mode, link) {
     const resultCard = document.getElementById('loResultCard');
     if (backBtn) backBtn.classList.remove('hidden');
     if (mode === 'create') {
-        if (titleEl) titleEl.textContent = '新建链路';
+        if (titleEl) titleEl.textContent = '新建观测视图';
         if (saveBtn) saveBtn.textContent = '保存配置';
         if (resultCard) resultCard.classList.add('hidden');
         loResultGenerated = false;
@@ -1940,7 +2425,7 @@ function applyWorkbenchMode(mode, link) {
     const resultCard = document.getElementById('loResultCard');
     if (backBtn) backBtn.classList.remove('hidden');
     if (mode === 'create') {
-        if (titleEl) titleEl.textContent = '新建链路';
+        if (titleEl) titleEl.textContent = '新建观测视图';
         if (saveBtn) saveBtn.textContent = '保存配置';
         if (resultCard) resultCard.classList.add('hidden');
         loResultGenerated = false;
@@ -1982,6 +2467,7 @@ function applyLoLinkToFilters(link) {
     setVal('loDepType', link.depType || '强依赖/业务强依赖');
     setVal('loPriority', link.svcPriority || link.priority || '');
     setVal('loSvcType', link.svcType || 'RPC');
+    setVal('loDept', link.dept || '');
     document.querySelectorAll('input[name="loGran"]').forEach(c => {
         c.checked = c.value === link.granularity;
     });
@@ -2001,11 +2487,41 @@ function saveCurrentLink(asNew) {
     // 收集当前筛选项快照
     const v = (typeof collectLoFilterValues === 'function') ? collectLoFilterValues() : {};
     const entryRaw = (document.getElementById('loEntry')?.value || '').trim();
-    const upLv = parseInt(document.getElementById('loUpLevel')?.value) || 1;
-    const downLv = parseInt(document.getElementById('loDownLevel')?.value) || 1;
+    const upRaw = (document.getElementById('loUpLevel')?.value || '').trim();
+    const downRaw = (document.getElementById('loDownLevel')?.value || '').trim();
+    const upLv = upRaw === '' ? null : (parseInt(upRaw) || 0);
+    const downLv = downRaw === '' ? null : (parseInt(downRaw) || 0);
     const granEl = document.querySelector('input[name="loGran"]:checked');
     const granularity = granEl ? granEl.value : '';
     const granText = granularity === 'interface' ? '接口' : (granularity === 'psm' ? 'PSM/服务' : '');
+    const topologyText = (upLv == null && downLv == null)
+        ? ''
+        : `向上 ${upLv == null ? '-' : upLv} 层 / 向下 ${downLv == null ? '-' : downLv} 层`;
+
+    // 必填项校验：工作台筛选项中带 * 的字段必须先填写
+    const requiredChecks = [
+        { ok: !!entryRaw, focusId: 'loEntry', msg: '请先选择链路入口' },
+        { ok: !!v.loVDC, focusId: 'loVDC', msg: '请先选择 VDC' },
+        { ok: !!v.loCluster, focusId: 'loCluster', msg: '请先选择集群' },
+        { ok: !!v.loTimeRange, focusId: 'loTimeRange', msg: '请先选择时间范围' },
+        { ok: upLv != null && downLv != null, focusId: 'loUpLevel', msg: '请先填写拓扑层级（向上 / 向下）' },
+        { ok: !!v.loDept, focusId: 'loDept', msg: '请先选择部门' },
+        { ok: !!granularity, focusId: null, msg: '请先选择观测粒度' }
+    ];
+    const failed = requiredChecks.find(c => !c.ok);
+    if (failed) {
+        showToast(failed.msg);
+        if (failed.focusId) {
+            const el = document.getElementById(failed.focusId);
+            if (el) {
+                el.focus();
+                if (typeof el.scrollIntoView === 'function') {
+                    el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                }
+            }
+        }
+        return;
+    }
 
     // 默认值（编辑模式取原数据）
     let defaultName = '';
@@ -2019,24 +2535,28 @@ function saveCurrentLink(asNew) {
 
     // 填充抽屉
     const setVal = (id, val) => { const el = document.getElementById(id); if (el) el.value = val == null ? '' : val; };
-    document.getElementById('loSaveDrawerTitle').textContent = isEdit ? '编辑链路' : '新建链路';
+    document.getElementById('loSaveDrawerTitle').textContent = isEdit ? '编辑观测视图' : '新建观测视图';
     setVal('loSaveName', defaultName);
     setVal('loSaveEntry', entryRaw);
     setVal('loSaveVDC', v.loVDC || '');
     setVal('loSaveCluster', v.loCluster || '');
     setVal('loSaveTimeRange', v.loTimeRange || '');
-    setVal('loSaveTopology', `向上 ${upLv} 层 / 向下 ${downLv} 层`);
+    setVal('loSaveTopology', topologyText);
     setVal('loSaveDepType', v.loDepType || '');
     setVal('loSaveSvcPriority', v.loPriority || '');
     setVal('loSaveSvcType', v.loSvcType || '');
+    setVal('loSaveDept', v.loDept || '未选择');
     setVal('loSaveGran', granText);
 
     // 打开抽屉
     document.getElementById('loSaveDrawer').classList.remove('hidden');
-    setTimeout(() => document.getElementById('loSaveName')?.focus(), 50);
+    setTimeout(() => {
+        const nameInput = document.getElementById('loSaveName');
+        if (nameInput) { nameInput.focus(); nameInput.select(); }
+    }, 50);
 }
 
-const loSaveDrawerState = { isEdit: false, asNew: false };
+const loSaveDrawerState = { isEdit: false, asNew: false, lastSavedId: null };
 
 function closeLoSaveDrawer() {
     document.getElementById('loSaveDrawer').classList.add('hidden');
@@ -2044,7 +2564,11 @@ function closeLoSaveDrawer() {
 
 function confirmLoSaveDrawer() {
     const name = (document.getElementById('loSaveName')?.value || '').trim();
-    if (!name) { showToast('请输入链路名称'); return; }
+    if (!name) { showToast('请输入观测视图名称'); return; }
+    if (name.length > 40) { showToast('观测视图名称不能超过 40 个字符'); return; }
+    // 重名校验（排除当前编辑项）
+    const dupe = loUserLinks.find(l => l.name === name && l.id !== loWorkbenchState.editingId);
+    if (!loSaveDrawerState.isEdit && dupe) { showToast('该观测视图名称已存在，请更换'); return; }
 
     // 解析入口
     const entryRaw = (document.getElementById('loEntry')?.value || '').trim();
@@ -2073,20 +2597,23 @@ function confirmLoSaveDrawer() {
             ex.depType = v.loDepType || ex.depType;
             ex.svcPriority = v.loPriority || ex.svcPriority;
             ex.svcType = v.loSvcType || ex.svcType;
+            ex.dept = v.loDept || ex.dept;
             ex.upLevel = upLv;
             ex.downLevel = downLv;
             ex.topology = `向上${upLv}层 / 向下${downLv}层`;
             ex.updateTime = ts;
+            loSaveDrawerState.lastSavedId = ex.id;
         }
         showToast('修改已保存');
     } else {
+        const newId = 'link-' + Date.now();
         loUserLinks.unshift({
-            id: 'link-' + Date.now(),
+            id: newId,
             name,
             entry: entryMethod ? `${entryPsm}:${entryMethod}:default` : entryPsm,
             entryPsm, entryMethod,
             granularity,
-            dept: '产品研发和工程架构-GEC', tag: '核心', priority: 'P2', owner: '当前用户',
+            dept: v.loDept || '产品研发和工程架构-GEC', tag: '核心', priority: 'P2', owner: '当前用户',
             topology: `向上${upLv}层 / 向下${downLv}层`,
             nodes: 8, edges: 10,
             status: 'safe', alertCount: 0, peakQps: '0 req/s',
@@ -2097,15 +2624,101 @@ function confirmLoSaveDrawer() {
             svcPriority: v.loPriority || '', svcType: v.loSvcType || '',
             upLevel: upLv, downLevel: downLv
         });
+        loSaveDrawerState.lastSavedId = newId;
         showToast('链路已保存');
     }
     closeLoSaveDrawer();
     switchPage('link-observation');
+    // 3 秒后清除新链路高亮
+    setTimeout(() => {
+        loSaveDrawerState.lastSavedId = null;
+        if (typeof renderLoLinks === 'function') renderLoLinks();
+    }, 3000);
 }
 
 function findLoNode(psm) {
     if (loTopologyData.target.psm === psm) return loTopologyData.target;
     return loTopologyData.downstream.find(n => n.psm === psm);
+}
+
+function openLoEdgeDrawer(fromPsm, toPsm) {
+    const caller = findLoNode(fromPsm);
+    const callee = findLoNode(toPsm);
+    if (!caller || !callee) return;
+    const titleEl = document.getElementById('loNodeDrawerTitle');
+    const bodyEl = document.getElementById('loNodeDrawerBody');
+    const drawer = document.getElementById('loNodeDrawer');
+    if (!titleEl || !bodyEl || !drawer) return;
+    const isInterfaceLevel = (function () {
+        const r = document.querySelector('input[name="loGran"]:checked');
+        return r ? (r.value === 'interface' || r.value === 'iface') : false;
+    })();
+    titleEl.textContent = `${caller.psm} → ${callee.psm}`;
+
+    // 强弱依赖：基于 caller→callee 哈希稳定派生
+    const depTypes = ['强依赖', '业务强依赖', '弱依赖'];
+    const depSeed = (caller.psm + '→' + callee.psm).split('').reduce((a, c) => a + c.charCodeAt(0), 0);
+    const depType = depTypes[depSeed % depTypes.length];
+    // 流量比例：该边 avg / 调用方对外总 avg
+    const callerOutSum = (loTopologyData.downstream || [])
+        .reduce((s, d) => s + (parseLoQpsNumber(d.avgQps) || 0), 0)
+        || (parseLoQpsNumber(callee.avgQps) || 1);
+    const thisAvg = parseLoQpsNumber(callee.avgQps) || 0;
+    const ratioStr = (callerOutSum > 0 ? (thisAvg / callerOutSum * 100) : 0).toFixed(2) + '%';
+
+    const callerCluster = caller.cluster || 'default';
+    const calleeCluster = callee.cluster || 'default';
+    // 调用方/被调用方接口：优先使用节点 invokeMethod，缺失时基于 psm 与 caller→callee 哈希稳定派生
+    const ifacePool = ['BatchWrite', 'BatchQuery', 'NotifyAlarm', 'GetDetail', 'ListItems', 'UpdateConfig'];
+    const pickIface = (svcPsm, salt) => {
+        const svc = (svcPsm || 'svc').split('.').slice(-1)[0] || 'svc';
+        const seed = (svcPsm + '|' + salt).split('').reduce((a, c) => a + c.charCodeAt(0), 0);
+        return svc + '.' + ifacePool[seed % ifacePool.length];
+    };
+    const callerIface = caller.invokeMethod && caller.invokeMethod !== '-'
+        ? caller.invokeMethod
+        : pickIface(caller.psm, 'caller→' + callee.psm);
+    const calleeIface = callee.invokeMethod && callee.invokeMethod !== '-'
+        ? callee.invokeMethod
+        : pickIface(callee.psm, caller.psm + '→callee');
+
+    const rows = [];
+    rows.push({ k: '调用方服务', v: caller.psm });
+    rows.push({ k: '调用方集群', v: callerCluster });
+    if (isInterfaceLevel) rows.push({ k: '调用方接口', v: callerIface });
+    rows.push({ k: '被调用方服务', v: callee.psm });
+    rows.push({ k: '被调用方集群', v: calleeCluster });
+    if (isInterfaceLevel) rows.push({ k: '被调用方接口', v: calleeIface });
+    rows.push({ k: '强弱依赖', v: depType });
+    rows.push({ k: '流量比例', v: ratioStr });
+
+    bodyEl.innerHTML = `
+        <div class="lo-detail-section">
+            <div class="lo-detail-section-title">边详情</div>
+            <div class="lo-base-grid">
+                ${rows.map(r => `
+                    <div class="lo-base-item">
+                        <span class="lo-base-label">${r.k}</span>
+                        <span class="lo-base-value" title="${r.v}">${r.v}</span>
+                    </div>
+                `).join('')}
+            </div>
+        </div>
+    `;
+    drawer.classList.remove('hidden');
+}
+
+// 解析 QPS 字符串为数值
+function parseLoQpsNumber(s) {
+    if (s == null || s === '' || s === '-') return 0;
+    if (typeof s === 'number') return s;
+    const m = String(s).trim().match(/^([\d.]+)\s*(k|w)?/i);
+    if (!m) return parseFloat(s) || 0;
+    let n = parseFloat(m[1]) || 0;
+    const u = (m[2] || '').toLowerCase();
+    if (u === 'k') n *= 1000;
+    else if (u === 'w') n *= 10000;
+    return n;
 }
 
 function openLoNodeDrawer(psm) {
@@ -2155,157 +2768,506 @@ function openLoNodeDrawer(psm) {
         </div>
     `;
 
-    // 上游接口信息（按 PRD 字段：调用方psm/接口/VDC/集群/优先级 + 流量 Max/Avg/P99 + CPU）
-    const upstreamRows = [
-        {
-            psm: node.upstream || '-',
-            method: 'invoke',
-            vdc: node.vdc || '-',
-            cluster: 'cluster-up',
-            priority: priorityText,
-            max: node.peakQps || '-',
-            avg: node.currentQps || '-',
-            p99: node.p99 || '-',
-            cpu: node.cpu || '-'
+    // ========= 节点关系数据生成（按 PRD 拓展指标） =========
+    // 上游/下游边的聚合数据来源；从 mock 数据派生 max/avg/p99/limited/limitRate/errorRate/rtAvg/rtP99/cpu/dependency/healthy/sparkline 等
+    function _toQps(v) {
+        if (v == null || v === '' || v === '-') return 0;
+        if (typeof v === 'number') return v;
+        const s = String(v).trim();
+        const m = s.match(/^([\d.]+)\s*(k|w)?\s*(req\/s)?$/i);
+        if (!m) return parseFloat(s) || 0;
+        let n = parseFloat(m[1]) || 0;
+        if ((m[2] || '').toLowerCase() === 'k') n *= 1000;
+        else if ((m[2] || '').toLowerCase() === 'w') n *= 10000;
+        return n;
+    }
+    function _pctFromCpu(v) {
+        if (!v) return 0;
+        const m = String(v).match(/[\d.]+/);
+        return m ? parseFloat(m[0]) : 0;
+    }
+    function _hashStr(s) {
+        let h = 0;
+        for (let i = 0; i < s.length; i++) { h = ((h << 5) - h) + s.charCodeAt(i); h |= 0; }
+        return Math.abs(h);
+    }
+    function _genSpark(seed, baseAvg) {
+        const arr = [];
+        for (let i = 0; i < 12; i++) {
+            const r = ((_hashStr(seed + i) % 100) / 100) * 0.6 + 0.7; // 0.7~1.3
+            arr.push(Math.max(0, baseAvg * r));
         }
-    ];
-    const upstreamHtml = `
-        <div class="lo-detail-section">
-            <div class="lo-detail-section-title">上游接口信息</div>
-            <table class="data-table lo-iface-table">
-                <thead><tr>
-                    <th>调用方psm</th><th>调用方接口</th><th>调用方VDC</th><th>调用方集群</th><th>优先级</th>
-                    <th>流量 Max</th><th>流量 Avg</th><th>流量 P99</th><th>CPU 利用率</th>
-                </tr></thead>
-                <tbody>
-                    ${upstreamRows.map(r => `<tr><td>${r.psm}</td><td>${r.method}</td><td>${r.vdc}</td><td>${r.cluster}</td><td>${r.priority}</td><td>${r.max}</td><td>${r.avg}</td><td>${r.p99}</td><td>${r.cpu}</td></tr>`).join('')}
-                </tbody>
-            </table>
-        </div>
-    `;
+        return arr;
+    }
+    function _formatQps(v) {
+        if (v == null || isNaN(v)) return '-';
+        if (v === 0) return '0';
+        if (v >= 10000) return (v / 10000).toFixed(2) + 'w';
+        if (v >= 1) return v.toFixed(2);
+        return v.toFixed(2);
+    }
+    function _formatPct(v) {
+        if (v == null || isNaN(v)) return '-';
+        return v.toFixed(2) + '%';
+    }
+    function _priorityOf(n) {
+        const m = (n.limitConfig || '').match(/P[012]/);
+        return m ? m[0] : 'P2';
+    }
+    function _depTypeOf(n) {
+        // 简易：根据节点 hash 派生强弱依赖
+        const types = ['强依赖', '业务强依赖', '弱依赖', '未标注'];
+        return types[_hashStr(n.psm) % 4];
+    }
+    function _vdcOf(n) {
+        // 简短化 VDC：取 / 后段
+        if (!n.vdc) return '-';
+        const segs = String(n.vdc).split(/\s*\/\s*/);
+        return segs[segs.length - 1].toUpperCase().replace(/[^A-Z0-9]/g, '');
+    }
+    function _healthOf(n) {
+        if (n.status === 'error') return { key: 'error', text: '异常' };
+        if (n.status === 'warn') return { key: 'warn', text: '预警' };
+        if ((n.limitConfig || '').includes('限流') && _toQps(n.threshold) > 0 && _toQps(n.peakQps) >= _toQps(n.threshold) * 0.9) return { key: 'limit', text: '限流' };
+        return { key: 'safe', text: '正常' };
+    }
+    // 构造一行边（caller -> callee）的所有指标
+    function _edgeMetrics(caller, callee) {
+        const callQps = _toQps(callee.peakQps) || _toQps(callee.qps) || _toQps(callee.currentQps) || 0;
+        const max = _toQps(callee.peakQps) || callQps;
+        const avg = _toQps(callee.currentQps) || callQps * 0.6;
+        const p99 = _toQps(callee.p99) || callQps * 1.2;
+        const threshold = _toQps(callee.threshold);
+        // 被限流 QPS：阈值存在且 max 超阈值时取 max - threshold
+        const limited = (threshold > 0 && max > threshold) ? (max - threshold) : 0;
+        const limitRate = max > 0 ? (limited / max) * 100 : 0;
+        // 错误率：依据 success
+        const succ = parseFloat(String(callee.success || '100').replace('%', '')) || 100;
+        const errRate = Math.max(0, 100 - succ);
+        // RT
+        const rtAvg = ((_hashStr(callee.psm) % 80) + 8) / 1; // 8~88ms
+        const rtP99 = rtAvg * 2.4;
+        const cpuPct = _pctFromCpu(callee.cpu);
+        const totalCallerCalls = _toQps(caller.peakQps) || avg * 3;
+        const trafficRatio = totalCallerCalls > 0 ? (avg / totalCallerCalls) * 100 : 0;
+        const sparkline = _genSpark(callee.psm + (callee.invokeMethod || ''), avg);
+        return {
+            svc: callee.psm,
+            iface: callee.invokeMethod || '-',
+            vdc: _vdcOf(callee),
+            cluster: callee.cluster || '-',
+            priority: _priorityOf(callee),
+            depType: _depTypeOf(callee),
+            trafficRatio,
+            max, avg, p99,
+            limited, limitRate, errRate,
+            rtAvg, rtP99,
+            cpu: cpuPct,
+            sparkline,
+            tickets: callee.abnormalCount || 0,
+            health: _healthOf(callee),
+            raw: callee
+        };
+    }
 
-    // 下游接口信息（按 PRD 字段：被调用方psm/接口/VDC/集群/优先级 + 流量 Max/Avg/P99 + CPU）
-    const downstreamRows = [
-        {
-            psm: node.downstream || '-',
-            method: ifaceName,
-            vdc: node.vdc || '-',
-            cluster: 'cluster-dn',
-            priority: priorityText,
-            max: node.peakQps || '-',
-            avg: node.currentQps || '-',
-            p99: node.p99 || '-',
-            cpu: node.cpu || '-'
+    // 构造上游/下游行
+    const upstreamEdges = [];
+    const downstreamEdges = [];
+    if (node === loTopologyData.target) {
+        // target 节点：上游通常未渲染节点，仅根据 upstream 字段构造一个聚合
+        if (node.upstream && node.upstream !== '-') {
+            String(node.upstream).split(/\s*[\/／]\s*/).forEach(name => {
+                const fakeUp = { psm: 'toutiao.upstream.' + name.replace(/\s+/g, ''), invokeMethod: 'invoke', vdc: node.vdc, cluster: 'cluster-up', limitConfig: 'P1', success: '99.95%', peakQps: node.peakQps, currentQps: node.currentQps, p99: node.p99, threshold: node.threshold, cpu: '32%', status: 'normal' };
+                upstreamEdges.push(_edgeMetrics(fakeUp, node));
+            });
         }
-    ];
-    const downstreamHtml = `
-        <div class="lo-detail-section">
-            <div class="lo-detail-section-title">下游接口信息</div>
-            <table class="data-table lo-iface-table">
-                <thead><tr>
-                    <th>被调用方psm</th><th>被调用方接口</th><th>被调用方VDC</th><th>被调用方集群</th><th>优先级</th>
-                    <th>流量 Max</th><th>流量 Avg</th><th>流量 P99</th><th>CPU 利用率</th>
-                </tr></thead>
-                <tbody>
-                    ${downstreamRows.map(r => `<tr><td>${r.psm}</td><td>${r.method}</td><td>${r.vdc}</td><td>${r.cluster}</td><td>${r.priority}</td><td>${r.max}</td><td>${r.avg}</td><td>${r.p99}</td><td>${r.cpu}</td></tr>`).join('')}
-                </tbody>
-            </table>
-        </div>
-    `;
+        loTopologyData.downstream.forEach(d => downstreamEdges.push(_edgeMetrics(node, d)));
+    } else {
+        // 下游节点：上游为 target；下游可能为空，构造 1 条派生
+        upstreamEdges.push(_edgeMetrics(loTopologyData.target, node));
+        if (node.downstream && node.downstream !== '-') {
+            String(node.downstream).split(/\s*[\/／]\s*/).forEach(name => {
+                const fakeDown = { psm: 'svc.' + name.replace(/\s+/g, ''), invokeMethod: 'BatchWrite', vdc: node.vdc, cluster: 'cluster-d', limitConfig: 'P2', success: '100%', peakQps: node.peakQps, currentQps: node.currentQps, p99: node.p99, threshold: node.threshold, cpu: '18%', status: 'normal' };
+                downstreamEdges.push(_edgeMetrics(node, fakeDown));
+            });
+        }
+    }
+
+    // 扩充：每个服务派生多接口 × 多集群副本，便于演示「全部*聚合」与多选展开逻辑
+    function _expandClusters(edges) {
+        const clusterPool = ['cluster-a', 'cluster-b', 'cluster-c', 'cluster-d', 'cluster-e'];
+        const ifacePool = ['BatchWrite', 'BatchQuery', 'NotifyAlarm', 'GetDetail', 'ListItems', 'UpdateConfig'];
+        const expanded = [];
+        edges.forEach(e => {
+            const seed = _hashStr(e.svc + (e.iface || ''));
+            // 集群数 2~4
+            const clusterCount = 2 + (seed % 3);
+            const clusterStart = seed % clusterPool.length;
+            const usedClusters = [];
+            for (let i = 0; i < clusterCount; i++) {
+                usedClusters.push(clusterPool[(clusterStart + i) % clusterPool.length]);
+            }
+            // 接口数 2~3（包括原始 iface）
+            const ifaceCount = 2 + ((seed >> 4) % 2);
+            const ifaceStart = (seed >> 8) % ifacePool.length;
+            const usedIfaces = [];
+            const origIface = e.iface && e.iface !== '-' ? e.iface : null;
+            if (origIface) usedIfaces.push(origIface);
+            for (let i = 0; usedIfaces.length < ifaceCount && i < ifacePool.length; i++) {
+                const cand = ifacePool[(ifaceStart + i) % ifacePool.length];
+                if (!usedIfaces.includes(cand)) usedIfaces.push(cand);
+            }
+            // 叉乘 接口 × 集群
+            usedIfaces.forEach((ifname, ifIdx) => {
+                usedClusters.forEach((c, cIdx) => {
+                    const idx = ifIdx * usedClusters.length + cIdx;
+                    const factor = (0.4 + ((seed >> (idx + 1)) % 60) / 100);
+                    const norm = factor / (clusterCount * ifaceCount);
+                    expanded.push({
+                        ...e,
+                        iface: ifname,
+                        cluster: c,
+                        max: e.max * (0.55 + ((seed >> idx) % 50) / 100),
+                        avg: e.avg * (0.55 + ((seed >> idx) % 50) / 100) * norm * (clusterCount * ifaceCount),
+                        p99: e.p99 * (0.65 + ((seed >> idx) % 40) / 100),
+                        cpu: Math.min(99, Math.max(5, e.cpu + ((seed >> idx) % 20) - 10)),
+                        limited: e.limited * norm,
+                        limitRate: e.limitRate,
+                        errRate: e.errRate
+                    });
+                });
+            });
+        });
+        return expanded;
+    }
+    const upstreamEdgesExpanded = _expandClusters(upstreamEdges);
+    const downstreamEdgesExpanded = _expandClusters(downstreamEdges);
+
+    // 渲染聚合表格的工具函数
+    function buildIfaceBlock(direction, edges) {
+        // direction: 'up' | 'down'
+        const labelPrefix = direction === 'up' ? '调用方' : '被调用方';
+        const stateKey = direction === 'up' ? 'loIfaceUp' : 'loIfaceDown';
+        // 初始化筛选状态（从 URL 读取）
+        const usp = new URLSearchParams(window.location.search);
+        const initFilter = {
+            svc: (usp.get(`${stateKey}_svc`) || '*').split(',').filter(Boolean),
+            iface: (usp.get(`${stateKey}_iface`) || '*').split(',').filter(Boolean),
+            vdc: (usp.get(`${stateKey}_vdc`) || '*').split(',').filter(Boolean),
+            cluster: (usp.get(`${stateKey}_cluster`) || '*').split(',').filter(Boolean)
+        };
+        window[stateKey] = window[stateKey] || initFilter;
+
+        // 候选值：集群恒定取自当前数据 + 常用 mock；接口取自当前数据（接口粒度下即为上游/下游所有节点接口名）
+        const baseClusters = Array.from(new Set(edges.map(e => e.cluster).filter(v => v && v !== '-')));
+        const extraClusters = ['cluster-a', 'cluster-b', 'cluster-c', 'cluster-d', 'cluster-e', 'cluster-up', 'cluster-dn', 'cluster-01', 'cluster-02', 'cluster-03'];
+        const allCluster = Array.from(new Set([...baseClusters, ...extraClusters]));
+        const baseIface = Array.from(new Set(edges.map(e => e.iface).filter(v => v && v !== '-')));
+        const extraIface = ['BatchWrite', 'BatchQuery', 'NotifyAlarm', 'GetDetail', 'ListItems', 'UpdateConfig', 'DeleteRecord', 'GET /i18n/translate', 'POST /order/create', 'PUT /user/update'];
+        // 接口粒度：仅暴露当前节点真实关联的接口（上游/下游所有节点对应的接口）
+        // 服务粒度：候选 = 真实数据 + mock，便于用户筛选更精细数据
+        const allIface = isInterfaceLevel
+            ? (baseIface.length ? baseIface : extraIface.slice(0, 5))
+            : Array.from(new Set([...baseIface, ...extraIface]));
+
+        const renderFilterChip = (field, label, options) => {
+            const sel = window[stateKey][field] || ['*'];
+            const isAll = !sel.length || sel.includes('*');
+            const display = isAll ? '*' : (sel.length === 1 ? sel[0] : `${sel[0]} +${sel.length - 1}`);
+            return `<div class="lo-iface-filter-chip" data-field="${field}">
+                <span class="lo-iface-filter-label">${label}</span>
+                <span class="lo-iface-filter-value${isAll ? ' is-all' : ''}" title="${sel.join(', ') || '*'}">${display}</span>
+                <span class="lo-iface-filter-arrow">▾</span>
+                <div class="lo-iface-filter-pop hidden">
+                    <div class="lo-iface-filter-pop-search"><input type="text" placeholder="搜索 ${label}" /></div>
+                    <div class="lo-iface-filter-pop-list">
+                        <label class="lo-iface-filter-pop-item"><input type="checkbox" data-val="*" ${isAll ? 'checked' : ''}> *（全部）</label>
+                        ${options.map(o => `<label class="lo-iface-filter-pop-item"><input type="checkbox" data-val="${o}" ${(!isAll && sel.includes(o)) ? 'checked' : ''}> ${o}</label>`).join('')}
+                    </div>
+                </div>
+            </div>`;
+        };
+
+        // chip 区：无论观测粒度都展示「接口 + 集群」两个筛选项，默认值均为 *
+        const filterChips = `
+            ${renderFilterChip('iface', `${labelPrefix}接口`, allIface)}
+            ${renderFilterChip('cluster', `${labelPrefix}集群`, allCluster)}
+            <button class="lo-iface-filter-reset" type="button">重置</button>
+        `;
+
+        // 已选 chip：按需求隐藏（避免与筛选项 chip 信息重复）
+        const selectedChips = '';
+
+        // 应用筛选（仅按可见字段过滤）
+        let rows = edges.filter(e => {
+            const f = window[stateKey];
+            if (f.iface && f.iface.length && !f.iface.includes('*') && !f.iface.includes(e.iface)) return false;
+            if (f.cluster && f.cluster.length && !f.cluster.includes('*') && !f.cluster.includes(e.cluster)) return false;
+            return true;
+        });
+
+        // 聚合规则：
+        // - 当某维度筛选 = '*'（全部），则把该维度的所有值合并到 1 行，列展示 '*'
+        // - 当某维度筛选指定具体值（单选/多选），按该维度展开
+        const f = window[stateKey];
+        const ifaceAll = !f.iface || !f.iface.length || f.iface.includes('*');
+        const clusterAll = !f.cluster || !f.cluster.length || f.cluster.includes('*');
+        // 分组键：服务（恒定）+ 接口 + 集群
+        const groupKeyOf = (e) => [e.svc, ifaceAll ? '*' : e.iface, clusterAll ? '*' : e.cluster].join('||');
+        const groups = new Map();
+        rows.forEach(e => {
+            const k = groupKeyOf(e);
+            if (!groups.has(k)) groups.set(k, []);
+            groups.get(k).push(e);
+        });
+        rows = Array.from(groups.values()).map(grp => {
+            const head = grp[0];
+            const aggCpu = grp.reduce((s, x) => s + (x.cpu || 0), 0) / grp.length;
+            const aggMax = grp.reduce((m, x) => Math.max(m, x.max || 0), 0);
+            const aggP99 = grp.reduce((m, x) => Math.max(m, x.p99 || 0), 0);
+            const aggAvg = grp.reduce((s, x) => s + (x.avg || 0), 0);
+            const aggLimited = grp.reduce((s, x) => s + (x.limited || 0), 0);
+            const aggLimitRate = grp.reduce((m, x) => Math.max(m, x.limitRate || 0), 0);
+            const aggErrRate = grp.reduce((m, x) => Math.max(m, x.errRate || 0), 0);
+            return {
+                ...head,
+                cluster: clusterAll ? '*' : head.cluster,
+                iface: ifaceAll ? '*' : head.iface,
+                max: aggMax,
+                avg: aggAvg,
+                p99: aggP99,
+                cpu: aggCpu,
+                limited: aggLimited,
+                limitRate: aggLimitRate,
+                errRate: aggErrRate
+            };
+        });
+
+        // 默认排序：被限流 QPS 倒序 → 错误率倒序
+        rows.sort((a, b) => (b.limited - a.limited) || (b.errRate - a.errRate));
+
+        // 表头（无论粒度，统一 8 列）：服务 / 接口 / 集群 / 优先级 / 流量 Max / 流量 Avg / 流量 P99 / CPU 利用率
+        const ths = [
+            `<th class="lo-iface-col-svc">${labelPrefix}服务</th>`,
+            `<th>${labelPrefix}接口</th>`,
+            `<th>${labelPrefix}集群</th>`,
+            `<th>优先级</th>`,
+            `<th>流量 Max</th>`,
+            `<th>流量 Avg</th>`,
+            `<th>流量 P99</th>`,
+            `<th>CPU 利用率</th>`
+        ].join('');
+
+        // 行
+        const trs = rows.length ? rows.map(r => {
+            const cpuCls = r.cpu > 85 ? ' lo-iface-cell-err' : (r.cpu > 70 ? ' lo-iface-cell-warn' : '');
+            const priorityChip = `<span class="lo-iface-priority lo-iface-priority-${(r.priority || 'P2').toLowerCase()}">${r.priority || 'P2'}</span>`;
+            const tds = [
+                `<td><span class="lo-iface-svc-text">${r.svc}</span></td>`,
+                `<td>${r.iface || '-'}</td>`,
+                `<td>${r.cluster}</td>`,
+                `<td>${priorityChip}</td>`,
+                `<td>${_formatQps(r.max)}</td>`,
+                `<td>${_formatQps(r.avg)}</td>`,
+                `<td>${_formatQps(r.p99)}</td>`,
+                `<td><span class="${cpuCls.trim()}">${_formatPct(r.cpu)}</span></td>`
+            ].join('');
+            return `<tr>${tds}</tr>`;
+        }).join('') : `<tr><td colspan="8"><div class="lo-iface-empty"><div class="lo-iface-empty-icon">📭</div><div>请调整筛选条件</div><a class="lo-iface-empty-clear" data-state="${stateKey}">清空筛选</a></div></td></tr>`;
+
+        return `
+            <div class="lo-detail-section lo-iface-block" data-direction="${direction}" data-state="${stateKey}">
+                <div class="lo-detail-section-title">${direction === 'up' ? '上游节点信息' : '下游节点信息'}</div>
+                <div class="lo-iface-filter-row">${filterChips}</div>
+                ${selectedChips}
+                <div class="lo-iface-table-scroll">
+                    <table class="data-table lo-iface-table lo-iface-table-pro">
+                        <thead><tr>${ths}</tr></thead>
+                        <tbody>${trs}</tbody>
+                    </table>
+                </div>
+            </div>
+        `;
+    }
+
+    const upstreamHtml = buildIfaceBlock('up', upstreamEdgesExpanded);
+    const downstreamHtml = buildIfaceBlock('down', downstreamEdgesExpanded);
 
     // 告警事件区块：流量趋势图 + 异常表 + 限流配置（GEC / Neptune）
     let alertHtml = '';
     {
         const qpsChartHtml = buildLoNodeQpsTabbed(node, isInterfaceLevel);
 
-        // 异常表
-        const abnRows = node.ticketEvent
-            ? [{ iface: node.invokeMethod || '-', type: '异常流量', limit: node.threshold || '-', traffic: node.peakQps || '-', time: node.ticketEvent.time, ticket: (node.ticketEvent.data.match(/#?INC-\d+-\d+/) || ['-'])[0] }]
-            : [];
+        // 异常表（按观测粒度区分）
+        // 列：异常类型、异常接口、异常影响接口、异常流量值、触发时间、异常工单
+        const dnIfaces = (loTopologyData.downstream || [])
+            .map(d => d.invokeMethod)
+            .filter(Boolean);
+        const buildTicket = (suffix) => 'INC-' + new Date().toISOString().slice(0, 10).replace(/-/g, '') + '-' + suffix;
+        let abnRows = [];
+        if (node.ticketEvent) {
+            if (isInterfaceLevel) {
+                // 接口级：仅展示当前接口的异常明细
+                const tk = (node.ticketEvent.data.match(/#?INC-\d+-\d+/) || [buildTicket('001')])[0].replace(/^#/, '');
+                abnRows.push({
+                    type: '异常流量',
+                    iface: node.invokeMethod || '-',
+                    affected: dnIfaces.slice(0, 3),
+                    traffic: node.peakQps || '-',
+                    time: node.ticketEvent.time,
+                    ticket: tk
+                });
+            } else {
+                // 服务级：展示该 PSM 下所有关联异常工单的接口
+                const svcIfaces = [];
+                if (node.invokeMethod) svcIfaces.push(node.invokeMethod);
+                const svcShort = (node.psm || '').split('.').slice(-1)[0] || 'svc';
+                ['BatchWrite', 'BatchQuery', 'NotifyAlarm'].forEach(s => {
+                    const m = `${svcShort}.${s}`;
+                    if (!svcIfaces.includes(m)) svcIfaces.push(m);
+                });
+                svcIfaces.slice(0, 3).forEach((m, i) => {
+                    abnRows.push({
+                        type: '异常流量',
+                        iface: m,
+                        affected: dnIfaces.slice(i, i + 2 + (i % 2)),
+                        traffic: i === 0 ? (node.peakQps || '-') : (Math.round((node.peakQps || 800) * (0.6 + i * 0.2)) + ' QPS'),
+                        time: node.ticketEvent.time,
+                        ticket: buildTicket(String(101 + i))
+                    });
+                });
+            }
+        }
+        const renderAffected = (arr) => {
+            if (!arr || !arr.length) return '<span class="lo-iface-cell-muted">-</span>';
+            return arr.map(x => `<span class="lo-abn-affected-chip" title="${x}">${x}</span>`).join('');
+        };
         const abnTable = `
             <div class="lo-alert-sub-title">异常</div>
-            <table class="data-table lo-iface-table">
-                <thead><tr><th>限流接口</th><th>限流类型</th><th>限流值</th><th>流量值</th><th>触发时间</th><th>工单 ID</th></tr></thead>
+            <table class="data-table lo-iface-table lo-abn-table">
+                <thead><tr><th>异常类型</th><th>异常接口</th><th>异常影响接口</th><th>异常流量值</th><th>触发时间</th><th>异常工单</th></tr></thead>
                 <tbody>
                     ${abnRows.length
-                        ? abnRows.map(r => `<tr><td>${r.iface}</td><td>${r.type}</td><td>${r.limit}</td><td>${r.traffic}</td><td>${r.time}</td><td><a class="lo-ticket-link" href="https://oncall.bytedance.net/ticket/${r.ticket}" target="_blank" rel="noopener">${r.ticket}</a></td></tr>`).join('')
+                        ? abnRows.map(r => `<tr>
+                            <td>${r.type}</td>
+                            <td title="${r.iface}">${r.iface}</td>
+                            <td class="lo-abn-affected-cell">${renderAffected(r.affected)}</td>
+                            <td>${r.traffic}</td>
+                            <td>${r.time}</td>
+                            <td><a class="lo-ticket-link" href="https://oncall.bytedance.net/ticket/${r.ticket}" target="_blank" rel="noopener">${r.ticket}</a></td>
+                        </tr>`).join('')
                         : `<tr><td colspan="6" style="text-align:center;color:#999">暂无数据</td></tr>`}
                 </tbody>
             </table>
         `;
 
-        // 限流配置：支持切换 tab —— GEC-限流器 / Neptune
+        // 限流配置：GEC-限流器 / Neptune / TLB 三个 tab
         const svcCluster = node.cluster || 'default';
-        const svcIface = node.invokeMethod || '-';
-        const upPsm = node !== loTopologyData.target ? loTopologyData.target.psm : '*';
-        const upCluster = node !== loTopologyData.target ? (loTopologyData.target.cluster || 'default') : '*';
-        const limitVal = node.threshold || '-';
-        const cpuVal = node.cpu || '-';
+        const svcIface = node.invokeMethod && node.invokeMethod !== '-' ? node.invokeMethod : ((node.psm || 'svc').split('.').slice(-1)[0] + '.BatchQuery');
+        const upPsm = node !== loTopologyData.target ? loTopologyData.target.psm : 'toutiao.upstream';
+        const upCluster = node !== loTopologyData.target ? (loTopologyData.target.cluster || 'default') : 'cluster-up';
+        const limitVal = node.threshold || '10000 req/s';
+        const sceneText = '默认场景';
+        const customKey = 'user_id';
+        const limitTypeIface = '接口限流';
+        const limitTypeKey = '自定义 key 限流';
+        const tlbDomain = (node.psm || 'svc').split('.').slice(-1)[0] + '.byted.org';
+        const tlbPath = '/api/v1/' + ((node.psm || 'svc').split('.').slice(-1)[0]) + '/list';
+        const tlbCluster = svcCluster;
+        // 限流集群（接口/自定义 key 限流场景下）
+        const limitCluster = svcCluster;
+        // 是否为 HTTP 服务（仅 HTTP 服务才展示 TLB tab）
+        const isHttpService = (node.svcType || '').toUpperCase() === 'HTTP'
+            || (node.method || '').toLowerCase() === 'http';
 
-        // GEC - 接口限流
-        const gecIfaceRows = [
-            { upPsm, upCluster, iface: svcIface, limitCluster: svcCluster, type: 'QPS 限流', limit: limitVal, cpu: cpuVal }
-        ];
-        // GEC - 自定义 key 限流
-        const gecKeyRows = [
-            { scene: '默认场景', limitCluster: svcCluster, key: 'user_id', type: '自定义 key 限流', limit: limitVal, cpu: cpuVal }
-        ];
-        // Neptune
-        const neptuneRows = [
-            { upPsm, upCluster, iface: svcIface, limit: limitVal, cpu: cpuVal }
-        ];
+        // ========== GEC-限流器 ==========
+        // PSM 级：分「接口限流」「自定义 key 限流」两个子 Tab
+        //   - 接口限流：调用方服务 / 调用方集群 / 限流接口 / 限流集群 / 限流值 / 操作
+        //   - 自定义 key 限流：限流场景 / 限流集群 / 自定义 key / 限流值 / 操作
+        // 接口级：保留单表格（限流类型 / 调用方服务 / 调用方集群 / 限流接口 / 限流场景 / 限流值 / 操作）
+        let gecPaneHtml = '';
+        if (!isInterfaceLevel) {
+            // 接口限流子 Tab
+            const gecIfaceHeads = ['调用方服务', '调用方集群', '限流接口', '限流集群', '限流值', '操作'];
+            const gecIfaceRow = [upPsm, upCluster, svcIface, limitCluster, limitVal];
+            const gecIfaceBody = `<tr>${gecIfaceRow.map(c => `<td title="${c}">${c}</td>`).join('')}<td><a class="lo-config-action" href="#" data-target="gec" data-psm="${node.psm}">查看</a></td></tr>`;
+            const gecIfaceTable = `
+                <table class="data-table lo-iface-table">
+                    <thead><tr>${gecIfaceHeads.map(h => `<th>${h}</th>`).join('')}</tr></thead>
+                    <tbody>${gecIfaceBody}</tbody>
+                </table>
+            `;
+            // 自定义 key 限流子 Tab
+            const gecKeyHeads = ['限流场景', '限流集群', '自定义 key', '限流值', '操作'];
+            const gecKeyRow = [sceneText, limitCluster, customKey, limitVal];
+            const gecKeyBody = `<tr>${gecKeyRow.map(c => `<td title="${c}">${c}</td>`).join('')}<td><a class="lo-config-action" href="#" data-target="gec" data-psm="${node.psm}">查看</a></td></tr>`;
+            const gecKeyTable = `
+                <table class="data-table lo-iface-table">
+                    <thead><tr>${gecKeyHeads.map(h => `<th>${h}</th>`).join('')}</tr></thead>
+                    <tbody>${gecKeyBody}</tbody>
+                </table>
+            `;
+            gecPaneHtml = `
+                <div class="lo-cfg-sub-tabs">
+                    <div class="lo-cfg-sub-tab active" data-subtab="iface">${limitTypeIface}</div>
+                    <div class="lo-cfg-sub-tab" data-subtab="key">${limitTypeKey}</div>
+                </div>
+                <div class="lo-cfg-sub-panel" data-subpanel="iface">${gecIfaceTable}</div>
+                <div class="lo-cfg-sub-panel hidden" data-subpanel="key">${gecKeyTable}</div>
+            `;
+        } else {
+            const gecHeads = ['调用方服务', '调用方集群', '限流接口', '限流集群', '限流值', '操作'];
+            const gecCells = [upPsm, upCluster, svcIface, limitCluster, limitVal];
+            const gecBody = `<tr>${gecCells.map(c => `<td title="${c}">${c}</td>`).join('')}<td><a class="lo-config-action" href="#" data-target="gec" data-psm="${node.psm}">查看</a></td></tr>`;
+            gecPaneHtml = `
+                <table class="data-table lo-iface-table">
+                    <thead><tr>${gecHeads.map(h => `<th>${h}</th>`).join('')}</tr></thead>
+                    <tbody>${gecBody}</tbody>
+                </table>
+            `;
+        }
 
-        const gecIfaceTable = `
-            <table class="data-table lo-iface-table">
-                <thead><tr><th>上游 psm</th><th>上游集群</th><th>限流接口</th><th>限流集群</th><th>限流类型</th><th>限流值</th><th>CPU 利用率</th><th>操作</th></tr></thead>
-                <tbody>
-                    ${gecIfaceRows.map(r => `<tr>
-                        <td>${r.upPsm}</td>
-                        <td>${r.upCluster}</td>
-                        <td>${r.iface}</td>
-                        <td>${r.limitCluster}</td>
-                        <td>${r.type}</td>
-                        <td>${r.limit}</td>
-                        <td>${r.cpu}</td>
-                        <td><a class="lo-config-action" href="#" data-target="gec" data-psm="${node.psm}">查看</a></td>
-                    </tr>`).join('')}
-                </tbody>
-            </table>
-        `;
-        const gecKeyTable = `
-            <table class="data-table lo-iface-table">
-                <thead><tr><th>限流场景</th><th>限流集群</th><th>自定义 key</th><th>限流类型</th><th>限流值</th><th>CPU 利用率</th><th>操作</th></tr></thead>
-                <tbody>
-                    ${gecKeyRows.map(r => `<tr>
-                        <td>${r.scene}</td>
-                        <td>${r.limitCluster}</td>
-                        <td>${r.key}</td>
-                        <td>${r.type}</td>
-                        <td>${r.limit}</td>
-                        <td>${r.cpu}</td>
-                        <td><a class="lo-config-action" href="#" data-target="gec" data-psm="${node.psm}">查看</a></td>
-                    </tr>`).join('')}
-                </tbody>
-            </table>
-        `;
-        const neptuneTable = `
-            <table class="data-table lo-iface-table">
-                <thead><tr><th>上游 psm</th><th>上游集群</th><th>限流接口</th><th>限流值</th><th>CPU 利用率</th><th>操作</th></tr></thead>
-                <tbody>
-                    ${neptuneRows.map(r => `<tr>
-                        <td>${r.upPsm}</td>
-                        <td>${r.upCluster}</td>
-                        <td>${r.iface}</td>
-                        <td>${r.limit}</td>
-                        <td>${r.cpu}</td>
-                        <td><a class="lo-config-action" href="#" data-target="neptune" data-psm="${node.psm}">查看</a></td>
-                    </tr>`).join('')}
-                </tbody>
-            </table>
-        `;
-        // GEC 子面板：根据节点的 limitMode 仅展示对应类型，不再提供 tab 切换
-        const isKeyNode = node.limitMode === 'key';
-        const gecPanelHtml = isKeyNode ? gecKeyTable : gecIfaceTable;
+        // ========== Neptune ==========
+        // PSM 级：调用方服务 / 调用方集群 / 限流接口 / 限流场景 / 限流值 / 操作
+        // 接口级：保留原字段
+        let neptuneTable = '';
+        if (!isInterfaceLevel) {
+            const neptuneHeads = ['调用方服务', '调用方集群', '限流接口', '限流场景', '限流值', '操作'];
+            const neptuneCells = [upPsm, upCluster, svcIface, sceneText, limitVal];
+            const neptuneBody = `<tr>${neptuneCells.map(c => `<td title="${c}">${c}</td>`).join('')}<td><a class="lo-config-action" href="#" data-target="neptune" data-psm="${node.psm}">查看</a></td></tr>`;
+            neptuneTable = `
+                <table class="data-table lo-iface-table">
+                    <thead><tr>${neptuneHeads.map(h => `<th>${h}</th>`).join('')}</tr></thead>
+                    <tbody>${neptuneBody}</tbody>
+                </table>
+            `;
+        } else {
+            const neptuneHeads = ['限流类型', '调用方服务', '调用方集群', '限流接口', '限流场景', '限流值', '操作'];
+            const neptuneCells = ['集群限流', upPsm, upCluster, svcIface, sceneText, limitVal];
+            const neptuneBody = `<tr>${neptuneCells.map(c => `<td title="${c}">${c}</td>`).join('')}<td><a class="lo-config-action" href="#" data-target="neptune" data-psm="${node.psm}">查看</a></td></tr>`;
+            neptuneTable = `
+                <table class="data-table lo-iface-table">
+                    <thead><tr>${neptuneHeads.map(h => `<th>${h}</th>`).join('')}</tr></thead>
+                    <tbody>${neptuneBody}</tbody>
+                </table>
+            `;
+        }
+
+        // ========== TLB ==========
+        // 仅 HTTP 服务展示该 tab
+        // 字段：TLB集群 / TLB域名 / TLB路径 / 限流值 / 操作
+        let tlbTable = '';
+        if (isHttpService) {
+            const tlbHeads = ['TLB集群', 'TLB域名', 'TLB路径', '限流值', '操作'];
+            const tlbCells = [tlbCluster, tlbDomain, tlbPath, limitVal];
+            const tlbBody = `<tr>${tlbCells.map(c => `<td title="${c}">${c}</td>`).join('')}<td><a class="lo-config-action" href="#" data-target="tlb" data-psm="${node.psm}">查看</a></td></tr>`;
+            tlbTable = `
+                <table class="data-table lo-iface-table">
+                    <thead><tr>${tlbHeads.map(h => `<th>${h}</th>`).join('')}</tr></thead>
+                    <tbody>${tlbBody}</tbody>
+                </table>
+            `;
+        }
 
         const cfgTable = `
             <div class="lo-alert-sub-title">限流配置</div>
@@ -2313,13 +3275,15 @@ function openLoNodeDrawer(psm) {
                 <div class="lo-cfg-tab-headers">
                     <div class="lo-cfg-tab-h active" data-tab="gec">GEC-限流器</div>
                     <div class="lo-cfg-tab-h" data-tab="neptune">Neptune</div>
+                    ${isHttpService ? `<div class="lo-cfg-tab-h" data-tab="tlb">TLB</div>` : ''}
                 </div>
                 <div class="lo-cfg-tab-panel" data-panel="gec">
-                    ${gecPanelHtml}
+                    ${gecPaneHtml}
                 </div>
                 <div class="lo-cfg-tab-panel hidden" data-panel="neptune">
                     ${neptuneTable}
                 </div>
+                ${isHttpService ? `<div class="lo-cfg-tab-panel hidden" data-panel="tlb">${tlbTable}</div>` : ''}
             </div>
         `;
 
@@ -2333,6 +3297,158 @@ function openLoNodeDrawer(psm) {
     }
 
     bodyEl.innerHTML = baseHtml + upstreamHtml + downstreamHtml + alertHtml;
+
+    // 聚合筛选交互（上游 / 下游表格）
+    function rerenderIfaceBlock(direction) {
+        const newHtml = buildIfaceBlock(direction, direction === 'up' ? upstreamEdgesExpanded : downstreamEdgesExpanded);
+        const cur = bodyEl.querySelector(`.lo-iface-block[data-direction="${direction}"]`);
+        if (cur) {
+            const tmp = document.createElement('div');
+            tmp.innerHTML = newHtml;
+            const next = tmp.firstElementChild;
+            // 仅替换内部内容，保留外层节点与已绑定的事件监听
+            cur.innerHTML = next.innerHTML;
+        }
+    }
+    function syncIfaceFilterToUrl() {
+        try {
+            const usp = new URLSearchParams(window.location.search);
+            ['loIfaceUp', 'loIfaceDown'].forEach(stateKey => {
+                ['svc', 'iface', 'vdc', 'cluster'].forEach(f => {
+                    const sel = (window[stateKey] && window[stateKey][f]) || [];
+                    const k = `${stateKey}_${f}`;
+                    if (!sel.length || sel.includes('*')) usp.delete(k);
+                    else usp.set(k, sel.join(','));
+                });
+            });
+            const newUrl = window.location.pathname + (usp.toString() ? '?' + usp.toString() : '') + window.location.hash;
+            window.history.replaceState(null, '', newUrl);
+        } catch (e) {}
+    }
+    bodyEl.querySelectorAll('.lo-iface-block').forEach(block => {
+        const direction = block.getAttribute('data-direction');
+        const stateKey = block.getAttribute('data-state');
+
+        // 点击 chip 切换 pop
+        block.addEventListener('click', (e) => {
+            // 操作按钮
+            const act = e.target.closest('.lo-iface-act-link');
+            if (act) {
+                e.preventDefault();
+                const psm = act.getAttribute('data-psm');
+                const action = act.getAttribute('data-act');
+                if (action === 'view') openLoNodeDrawer(psm);
+                else if (action === 'topo') {
+                    if (typeof showToast === 'function') showToast(`已跳转到「${psm}」拓扑视图`);
+                } else if (action === 'cfg') {
+                    if (typeof showToast === 'function') showToast(`已打开「${psm}」限流配置`);
+                }
+                return;
+            }
+            // 服务名链接
+            const svcLink = e.target.closest('.lo-iface-svc-link');
+            if (svcLink) {
+                e.preventDefault();
+                openLoNodeDrawer(svcLink.getAttribute('data-psm'));
+                return;
+            }
+            // 重置
+            if (e.target.closest('.lo-iface-filter-reset')) {
+                window[stateKey] = { svc: ['*'], iface: ['*'], vdc: ['*'], cluster: ['*'] };
+                syncIfaceFilterToUrl();
+                rerenderIfaceBlock(direction);
+                return;
+            }
+            // 已选 chip × 移除
+            const sx = e.target.closest('.lo-iface-selected-chip');
+            if (sx && e.target.classList.contains('lo-iface-selected-x')) {
+                const f = sx.getAttribute('data-field');
+                const v = sx.getAttribute('data-val');
+                window[stateKey][f] = (window[stateKey][f] || []).filter(x => x !== v);
+                if (!window[stateKey][f].length) window[stateKey][f] = ['*'];
+                syncIfaceFilterToUrl();
+                rerenderIfaceBlock(direction);
+                return;
+            }
+            // 空态「清空筛选」
+            const ec = e.target.closest('.lo-iface-empty-clear');
+            if (ec) {
+                e.preventDefault();
+                window[stateKey] = { svc: ['*'], iface: ['*'], vdc: ['*'], cluster: ['*'] };
+                syncIfaceFilterToUrl();
+                rerenderIfaceBlock(direction);
+                return;
+            }
+            // chip 弹层切换
+            const chip = e.target.closest('.lo-iface-filter-chip');
+            if (chip) {
+                if (e.target.closest('.lo-iface-filter-pop')) {
+                    // 在弹层内：checkbox 处理
+                    const cb = e.target.closest('input[type="checkbox"]');
+                    if (cb) {
+                        const field = chip.getAttribute('data-field');
+                        const val = cb.getAttribute('data-val');
+                        let cur = (window[stateKey][field] || []).slice();
+                        if (val === '*') {
+                            cur = cb.checked ? ['*'] : [];
+                        } else {
+                            cur = cur.filter(x => x !== '*');
+                            if (cb.checked) {
+                                if (!cur.includes(val)) cur.push(val);
+                            } else {
+                                cur = cur.filter(x => x !== val);
+                            }
+                            if (!cur.length) cur = ['*'];
+                        }
+                        window[stateKey][field] = cur;
+                        syncIfaceFilterToUrl();
+                        rerenderIfaceBlock(direction);
+                        // 重渲后保持当前 chip 的弹层展开，便于继续多选
+                        const blockAfter = bodyEl.querySelector(`.lo-iface-block[data-direction="${direction}"]`);
+                        if (blockAfter) {
+                            const chipAfter = blockAfter.querySelector(`.lo-iface-filter-chip[data-field="${field}"]`);
+                            if (chipAfter) {
+                                const popAfter = chipAfter.querySelector('.lo-iface-filter-pop');
+                                if (popAfter) popAfter.classList.remove('hidden');
+                            }
+                        }
+                    }
+                    return;
+                }
+                // chip 自身：切换 pop 显示
+                const pop = chip.querySelector('.lo-iface-filter-pop');
+                if (pop) {
+                    // 关闭其他
+                    block.querySelectorAll('.lo-iface-filter-pop').forEach(p => { if (p !== pop) p.classList.add('hidden'); });
+                    pop.classList.toggle('hidden');
+                }
+                return;
+            }
+            // 点其他位置：关闭所有 pop
+            block.querySelectorAll('.lo-iface-filter-pop').forEach(p => p.classList.add('hidden'));
+        });
+
+        // 弹层内搜索
+        block.addEventListener('input', (e) => {
+            const search = e.target.closest('.lo-iface-filter-pop-search input');
+            if (!search) return;
+            const list = search.closest('.lo-iface-filter-pop').querySelector('.lo-iface-filter-pop-list');
+            const kw = search.value.trim().toLowerCase();
+            list.querySelectorAll('.lo-iface-filter-pop-item').forEach(it => {
+                const v = (it.textContent || '').toLowerCase();
+                it.style.display = v.includes(kw) ? '' : 'none';
+            });
+        });
+    });
+    // 全局点击外部关闭聚合筛选 pop
+    if (!document._loIfaceFilterClose) {
+        document._loIfaceFilterClose = true;
+        document.addEventListener('pointerdown', (e) => {
+            if (!e.target.closest('.lo-iface-filter-chip')) {
+                document.querySelectorAll('.lo-iface-filter-pop').forEach(p => p.classList.add('hidden'));
+            }
+        }, true);
+    }
 
     // 初次渲染 QPS 图表内容（多接口对比） + 绑定下拉/搜索事件
     bodyEl.querySelectorAll('.lo-qps-chart-wrap').forEach(wrap => {
@@ -2415,6 +3531,15 @@ function parseLoThresholdWaterText(t) {
 function getLoNodeInterfaces(node) {
     const baseLimit = parseLoThresholdNumber(node.threshold) || 100;
     const isKeyMode = node.limitMode === 'key';
+    const isAllMode = node.limitMode === 'all';
+    // 'all' 模式：合并接口限流 + 自定义 Key 限流，并在每条上加 kind 字段
+    if (isAllMode) {
+        const ifaceList = getLoNodeInterfaces({ ...node, limitMode: 'iface' }).map(it => ({ ...it, kind: 'iface' }));
+        const keyList = getLoNodeInterfaces({ ...node, limitMode: 'key' }).map(it => ({ ...it, kind: 'key' }));
+        // 状态分组排序：limit > warn > safe；同状态内按 ratio 降序
+        const order = { limit: 0, warn: 1, safe: 2 };
+        return [...ifaceList, ...keyList].sort((a, b) => (order[a.status] - order[b.status]) || (b.ratio - a.ratio));
+    }
     // 节点是限流/异常状态：主项标记为 limit；预警状态：主项标记为 warn；其余为 normal
     const isNodeError = node.status === 'error' || !!node.abnormalTraffic;
     const isNodeWarn = node.status === 'warn';
@@ -2449,12 +3574,17 @@ function getLoNodeInterfaces(node) {
             { key: 'order_id',   mul: 0.36 },
             { key: 'session_id', mul: 0.55 }
         ];
+        const callerSvc = node.upstream || 'toutiao.upstream';
+        const calleeSvc = node.psm;
         keyCands2.forEach((c, i) => {
             const scene = sceneCands[i % sceneCands.length];
             const vdc = vdcCands[i % vdcCands.length];
             const name = `${scene} · ${vdc} · ${c.key}`;
             const peak = c.mul == null ? primaryPeak : baseLimit * c.mul;
-            list.push({ name, limit: baseLimit, peak });
+            list.push({
+                name, limit: baseLimit, peak,
+                meta: { scene, callerSvc, calleeSvc, customKey: c.key }
+            });
         });
     } else {
         // 接口限流：name 形如「上游PSM › 上游集群 › 服务PSM › 服务集群 › 服务接口」
@@ -2463,13 +3593,23 @@ function getLoNodeInterfaces(node) {
         const svcClusters = ['default', 'cluster-c', 'cluster-01'];
         const primaryName = node.invokeMethod || (node.psm + '/default');
         const buildPath = (upC, svcC, m) => `${upPsm} › ${upC} › ${node.psm} › ${svcC} › ${m}`;
-        list.push({ name: buildPath(upClusters[0], svcClusters[0], primaryName), limit: baseLimit, peak: primaryPeak });
+        list.push({
+            name: buildPath(upClusters[0], svcClusters[0], primaryName),
+            limit: baseLimit,
+            peak: primaryPeak,
+            meta: { callerSvc: upPsm, callerCluster: upClusters[0], calleeSvc: node.psm, calleeCluster: svcClusters[0], calleeIface: primaryName }
+        });
         const svc = node.psm.split('.').slice(-1)[0] || 'svc';
         ifaceCandidates.forEach((c, i) => {
             const m = svc + '.' + c.suffix;
             const upC = upClusters[i % upClusters.length];
             const svcC = svcClusters[i % svcClusters.length];
-            list.push({ name: buildPath(upC, svcC, m), limit: baseLimit, peak: baseLimit * c.mul });
+            list.push({
+                name: buildPath(upC, svcC, m),
+                limit: baseLimit,
+                peak: baseLimit * c.mul,
+                meta: { callerSvc: upPsm, callerCluster: upC, calleeSvc: node.psm, calleeCluster: svcC, calleeIface: m }
+            });
         });
     }
     // 计算状态与 proximity（peak/limit）
@@ -2480,6 +3620,34 @@ function getLoNodeInterfaces(node) {
         else if (ratio >= 0.8) status = 'warn';
         return { ...it, ratio, status };
     }).sort((a, b) => b.ratio - a.ratio);
+}
+
+// 时间范围（"近 5mins" / "近 1h" 等）→ 总毫秒数 + 轴标签格式
+function loTrRangeMeta(tr) {
+    const map = {
+        '近 5mins':  { ms: 5  * 60 * 1000,        fmt: 'hm' },
+        '近 15mins': { ms: 15 * 60 * 1000,        fmt: 'hm' },
+        '近 30mins': { ms: 30 * 60 * 1000,        fmt: 'hm' },
+        '近 1h':     { ms: 60 * 60 * 1000,        fmt: 'hm' },
+        '近 3h':     { ms: 3  * 60 * 60 * 1000,   fmt: 'hm' },
+        '近 6h':     { ms: 6  * 60 * 60 * 1000,   fmt: 'hm' },
+        '近 12h':    { ms: 12 * 60 * 60 * 1000,   fmt: 'hm' },
+        '近 24h':    { ms: 24 * 60 * 60 * 1000,   fmt: 'mdhm' },
+        '近 3 天':   { ms: 3  * 24 * 60 * 60 * 1000, fmt: 'mdh' },
+        '近 7 天':   { ms: 7  * 24 * 60 * 60 * 1000, fmt: 'md' }
+    };
+    return map[tr] || map['近 30mins'];
+}
+function loFmtTickLabel(t, fmt) {
+    const pad = (n) => String(n).padStart(2, '0');
+    const mm = pad(t.getMonth() + 1);
+    const dd = pad(t.getDate());
+    const hh = pad(t.getHours());
+    const mi = pad(t.getMinutes());
+    if (fmt === 'md')   return `${mm}-${dd}`;
+    if (fmt === 'mdh')  return `${mm}-${dd} ${hh}:00`;
+    if (fmt === 'mdhm') return `${mm}-${dd} ${hh}:${mi}`;
+    return `${hh}:${mi}`;
 }
 
 // 生成单个接口的折线点位
@@ -2559,33 +3727,14 @@ function buildLoStatusBadge(status) {
 // - 服务级别：同时展示「接口限流 / 自定义 Key 限流」Tab，可切换查看
 // - 接口级别：仅「接口限流」Tab，自定义 Key Tab 置灰且不可点击
 function buildLoNodeQpsTabbed(node, isInterfaceLevel) {
-    // 接口限流：基于节点自身（无论 limitMode 是什么）渲染一个接口限流 chart
-    const ifaceNode = { ...node, limitMode: 'iface' };
-    const keyNode = { ...node, limitMode: 'key' };
-    const ifaceChart = buildLoNodeQpsChart(ifaceNode);
-    const keyChart = isInterfaceLevel ? '' : buildLoNodeQpsChart(keyNode);
-
-    // 默认激活 Tab：节点 limitMode 为 key 且非接口级别 → key；其它 → iface
-    const defaultTab = (!isInterfaceLevel && node.limitMode === 'key') ? 'key' : 'iface';
-
-    const tabsHtml = `
-        <div class="lo-rule-tabs">
-            <div class="lo-rule-tab ${defaultTab === 'iface' ? 'active' : ''}" data-rule-tab="iface">接口限流</div>
-            ${isInterfaceLevel ? '' : `
-            <div class="lo-rule-tab ${defaultTab === 'key' ? 'active' : ''}" data-rule-tab="key">自定义 Key 限流</div>`}
-        </div>
-    `;
-
-    return `
-        <div class="lo-rule-tabbed" data-active-tab="${defaultTab}">
-            ${tabsHtml}
-            <div class="lo-rule-pane ${defaultTab === 'iface' ? '' : 'hidden'}" data-pane="iface">${ifaceChart}</div>
-            ${isInterfaceLevel
-                ? ''
-                : `<div class="lo-rule-pane ${defaultTab === 'key' ? '' : 'hidden'}" data-pane="key">${keyChart}</div>`
-            }
-        </div>
-    `;
+    // 不再按 Tab 区分接口限流 / 自定义 Key 限流，统一在一个下拉选择框中展示。
+    // 接口级别：仍只展示接口限流（自定义 Key 限流不适用）。
+    // 服务级别：'all' 模式合并两类规则，列表中通过 tag 区分。
+    const mergedNode = { ...node, limitMode: isInterfaceLevel ? 'iface' : 'all' };
+    const chart = buildLoNodeQpsChart(mergedNode);
+    return `<div class="lo-rule-tabbed" data-active-tab="all">
+        <div class="lo-rule-pane" data-pane="all">${chart}</div>
+    </div>`;
 }
 
 function buildLoNodeQpsChart(node) {
@@ -2595,8 +3744,9 @@ function buildLoNodeQpsChart(node) {
     const innerH = H - padT - padB;
 
     const isKeyMode = node.limitMode === 'key';
-    const limitTypeText = isKeyMode ? '自定义 key 限流' : '接口限流';
-    const dimText = isKeyMode ? 'key' : '接口';
+    const isAllMode = node.limitMode === 'all';
+    const limitTypeText = isAllMode ? '混合限流' : (isKeyMode ? '自定义 key 限流' : '接口限流');
+    const dimText = isAllMode ? '规则' : (isKeyMode ? 'key' : '接口');
 
     // 接口/key 列表（流量趋势图中不展示「异常」状态）
     const ifaces = getLoNodeInterfaces(node).filter(f => f.status !== 'abnormal');
@@ -2657,7 +3807,9 @@ function buildLoNodeQpsChart(node) {
             status: f.status,
             limit: f.limit,
             peak: f.peak,
+            kind: f.kind || (isKeyMode ? 'key' : 'iface'),
             color: LO_LINE_COLORS[i % LO_LINE_COLORS.length],
+            meta: f.meta || {},
             pts
         };
     });
@@ -2675,6 +3827,7 @@ function buildLoNodeQpsChart(node) {
     // ============================================================
     const events = [];
     const lastIdx = allLines.length - 1;
+    const lineLimitTypeOf = (line) => line.kind === 'key' ? '自定义 key 限流' : '接口限流';
     allLines.forEach((line, idx) => {
         // 演示「无匹配事件」场景：跳过最末一条 warn/limit 接口的事件生成
         const skipEvent = (idx === lastIdx && (line.status === 'warn' || line.status === 'limit'));
@@ -2694,13 +3847,14 @@ function buildLoNodeQpsChart(node) {
                     events.push({
                         eventType: 'limit',
                         apiName: line.name,
-                        limitType: limitTypeText,
+                        limitType: lineLimitTypeOf(line),
                         limitValue: line.limit,
                         waterLevel: 0.8,
                         trafficValue: peakPt.v,        // 快照：峰值流量
                         triggerTime: startPt.ts,       // 快照：首次越线时间
                         duration: dur,
                         ticketId: ticketId,
+                        meta: line.meta || {},
                         _matchTs: p.ts                 // 仅用于 ±2min 匹配
                     });
                 });
@@ -2716,12 +3870,13 @@ function buildLoNodeQpsChart(node) {
                     events.push({
                         eventType: 'warning',
                         apiName: line.name,
-                        limitType: limitTypeText,
+                        limitType: lineLimitTypeOf(line),
                         limitValue: line.limit,
                         waterLevel: 0.8,
                         trafficValue: peakPt.v,        // 快照：预警期内峰值流量
                         triggerTime: startPt.ts,       // 快照：首次进入预警区时间
                         duration: dur,
+                        meta: line.meta || {},
                         _matchTs: p.ts                 // 仅用于 ±2min 匹配
                     });
                 });
@@ -2730,7 +3885,7 @@ function buildLoNodeQpsChart(node) {
     });
 
     // 整个图表区域捕获鼠标位置，依据 X 位置展示选中接口的对比 tooltip
-    const hitOverlay = `<rect class="lo-qps-hit" x="${padL}" y="${padT}" width="${innerW}" height="${innerH}" fill="transparent" style="cursor:crosshair" onmousemove="handleLoQpsMove(event)" onmouseleave="hideLoQpsTip()"/>`;
+    const hitOverlay = `<rect class="lo-qps-hit" x="${padL}" y="${padT}" width="${innerW}" height="${innerH}" fill="transparent" style="cursor:crosshair" onmousemove="handleLoQpsMove(event)" onmouseleave="hideLoQpsTip()" onclick="toggleLoQpsTipPinned(event)"/>`;
 
     // 序列化以便客户端渲染
     const linesAttr = encodeURIComponent(JSON.stringify(allLines));
@@ -2739,11 +3894,50 @@ function buildLoNodeQpsChart(node) {
     const eventsAttr = encodeURIComponent(JSON.stringify(events));
 
     // 顶部可搜索单选下拉
-    const searchPlaceholder = isKeyMode
-        ? '自定义 key 限流规则：限流场景/VDC/自定义 key'
-        : '接口限流规则：上游 psm/上游集群/服务 psm/服务集群/服务接口';
+    const searchPlaceholder = isAllMode
+        ? '限流规则：接口限流 / 自定义 Key 限流'
+        : (isKeyMode
+            ? '自定义 key 限流规则：限流场景/VDC/自定义 key'
+            : '接口限流规则：上游 psm/上游集群/服务 psm/服务集群/服务接口');
     // 状态快筛 chip 计数
     const statCount = ifaces.reduce((acc, f) => { acc[f.status] = (acc[f.status] || 0) + 1; return acc; }, {});
+
+    // 时间范围筛选：根据用户在工作台配置的基础时间范围，下拉支持的子选项不同
+    const trVal = (() => {
+        const el = document.getElementById('loTimeRange');
+        return el ? (el.value || '').trim() : '';
+    })();
+    const allTrOptions = [
+        { val: '近 5mins',  rank: 1 },
+        { val: '近 15mins', rank: 2 },
+        { val: '近 30mins', rank: 3 },
+        { val: '近 1h',    rank: 4 },
+        { val: '近 3h',    rank: 5 },
+        { val: '近 6h',    rank: 6 },
+        { val: '近 12h',   rank: 7 },
+        { val: '近 24h',   rank: 8 },
+        { val: '近 3 天',  rank: 9 },
+        { val: '近 7 天',  rank: 10 }
+    ];
+    // 基础范围 → 允许的最大档位
+    const baseRankMap = {
+        '近 1h': 4, '近 3h': 5, '近 6h': 6, '近 12h': 7, '近 24h': 8, '近 3 天': 9, '近 7 天': 10
+    };
+    const maxRank = baseRankMap[trVal] || 10;
+    const trOptions = allTrOptions.filter(o => o.rank <= maxRank);
+    const defaultTr = trOptions.length ? trOptions[trOptions.length - 1].val : '近 1h';
+    const trDropdownHtml = `
+        <div class="lo-qps-tr-select" data-open="0">
+            <div class="lo-qps-tr-trigger" tabindex="0">
+                <span class="lo-qps-tr-value">${defaultTr}</span>
+                <span class="lo-qps-tr-arrow">▾</span>
+            </div>
+            <div class="lo-qps-tr-panel hidden">
+                ${trOptions.map(o => `<div class="lo-qps-tr-item${o.val === defaultTr ? ' active' : ''}" data-val="${o.val}">${o.val}</div>`).join('')}
+            </div>
+        </div>
+    `;
+
     const dropdownHtml = `
         <div class="lo-iface-select" data-open="0" data-status-filter="all">
             <div class="lo-iface-select-trigger" tabindex="0">
@@ -2779,7 +3973,7 @@ function buildLoNodeQpsChart(node) {
              data-inner-w="${innerW}"
              data-inner-h="${innerH}"
              data-y-max="${yMax}"
-             data-limit-mode="${isKeyMode ? 'key' : 'iface'}"
+             data-limit-mode="${isAllMode ? 'all' : (isKeyMode ? 'key' : 'iface')}"
              data-limit-type="${limitTypeText}"
              data-dim="${dimText}"
              data-y-axis="${encodeURIComponent(yAxisHtml)}"
@@ -2788,9 +3982,11 @@ function buildLoNodeQpsChart(node) {
              data-water-line="${encodeURIComponent(waterLine)}"
              data-hit="${encodeURIComponent(hitOverlay)}"
              data-w="${W}" data-h="${H}"
+             data-active-tr="${defaultTr}"
              onmouseleave="hideLoQpsTip()">
             <div class="lo-qps-chart-header">
                 ${dropdownHtml}
+                ${trDropdownHtml}
             </div>
             <div class="lo-qps-chart-svg"></div>
             <div class="lo-qps-chart-caption"></div>
@@ -2809,10 +4005,48 @@ function renderLoQpsChartContent(wrap) {
     const W = parseInt(wrap.getAttribute('data-w')) || 560;
     const H = parseInt(wrap.getAttribute('data-h')) || 220;
     const yAxisHtml = decodeURIComponent(wrap.getAttribute('data-y-axis') || '');
-    const xAxisHtml = decodeURIComponent(wrap.getAttribute('data-x-axis') || '');
+    let xAxisHtml = decodeURIComponent(wrap.getAttribute('data-x-axis') || '');
     const limitLine = decodeURIComponent(wrap.getAttribute('data-limit-line') || '');
     const waterLine = decodeURIComponent(wrap.getAttribute('data-water-line') || '');
     const hitOverlay = decodeURIComponent(wrap.getAttribute('data-hit') || '');
+
+    // 时间范围切换：根据当前 active-tr 重新生成 X 轴 label，并刷新每个 pt.time/pt.ts
+    const activeTr = wrap.getAttribute('data-active-tr') || '';
+    if (activeTr) {
+        const padL = parseFloat(wrap.getAttribute('data-pad-l')) || 0;
+        const padT = parseFloat(wrap.getAttribute('data-pad-t')) || 0;
+        const innerW = parseFloat(wrap.getAttribute('data-inner-w')) || 0;
+        const innerH = parseFloat(wrap.getAttribute('data-inner-h')) || 0;
+        const meta = loTrRangeMeta(activeTr);
+        const endTs = Date.now();
+        const startTs = endTs - meta.ms;
+        // 重新生成 7 个 X 轴 tick
+        const TICK_N = 7;
+        let newXAxis = '';
+        for (let i = 0; i < TICK_N; i++) {
+            const r = i / (TICK_N - 1);
+            const ts = startTs + r * (endTs - startTs);
+            const xx = padL + r * innerW;
+            const label = loFmtTickLabel(new Date(ts), meta.fmt);
+            newXAxis += `<text x="${xx}" y="${padT + innerH + 16}" text-anchor="middle" font-size="10" fill="#999">${label}</text>`;
+        }
+        xAxisHtml = newXAxis;
+        // 重新计算每条线的点位时间戳（保留 v/y/x，仅刷新 ts/time）
+        const fmt2 = (n) => String(n).padStart(2, '0');
+        lines.forEach(l => {
+            if (!Array.isArray(l.pts) || l.pts.length === 0) return;
+            const N = l.pts.length;
+            l.pts.forEach((p, i) => {
+                const r = N === 1 ? 0 : (i / (N - 1));
+                const ts = startTs + r * (endTs - startTs);
+                const t = new Date(ts);
+                p.ts = ts;
+                p.time = `${t.getFullYear()}-${fmt2(t.getMonth() + 1)}-${fmt2(t.getDate())} ${fmt2(t.getHours())}:${fmt2(t.getMinutes())}:${fmt2(t.getSeconds())}`;
+            });
+        });
+        // 写回 lines（供 hover tooltip 使用最新时间）
+        wrap.setAttribute('data-lines', encodeURIComponent(JSON.stringify(lines)));
+    }
 
     const selLines = lines.filter(l => selected.includes(l.name));
     const polylines = selLines.map(l => {
@@ -2864,8 +4098,10 @@ function renderLoQpsChartContent(wrap) {
             tags.innerHTML = selected.map(name => {
                 const f = ifaces.find(x => x.name === name);
                 const status = f ? f.status : 'safe';
+                const kind = f ? (f.kind || 'iface') : 'iface';
                 return `
                     <span class="lo-iface-tag lo-iface-tag-single" data-fullname="${name}">
+                        ${buildLoKindTag(kind)}
                         <span class="lo-iface-tag-name">${name}</span>
                         ${buildLoStatusBadge(status)}
                     </span>
@@ -2893,6 +4129,14 @@ function compactRuleName(name, isKeyMode) {
     const segs = name.split('›').map(s => s.trim());
     if (segs.length >= 5) return `${segs[2]} / ${segs[4]}`;
     return name;
+}
+
+// 限流规则类型标签：接口限流 / 自定义 Key 限流
+function buildLoKindTag(kind) {
+    if (kind === 'key') {
+        return `<span class="lo-iface-kind lo-iface-kind-key">自定义Key 限流</span>`;
+    }
+    return `<span class="lo-iface-kind lo-iface-kind-iface">接口限流</span>`;
 }
 
 function renderLoIfaceSelectList(wrap, keyword) {
@@ -2942,6 +4186,7 @@ function renderLoIfaceSelectList(wrap, keyword) {
         return `
             <div class="lo-iface-select-item${checked ? ' checked' : ''}" data-name="${encodeURIComponent(f.name)}" data-fullname="${f.name}">
                 <span class="lo-iface-select-check">${checked ? '✓' : ''}</span>
+                ${buildLoKindTag(f.kind || 'iface')}
                 <span class="lo-iface-select-name">${highlight(f.name)}</span>
                 ${buildLoStatusBadge(f.status)}
             </div>
@@ -2969,6 +4214,36 @@ function bindLoQpsChartEvents(rootEl) {
         }
         const wrap = e.target.closest && e.target.closest('.lo-qps-chart-wrap');
         if (!wrap) return;
+        // 时间范围下拉触发器
+        const trTrigger = e.target.closest('.lo-qps-tr-trigger');
+        if (trTrigger) {
+            e.stopPropagation();
+            const trSel = wrap.querySelector('.lo-qps-tr-select');
+            const trPanel = wrap.querySelector('.lo-qps-tr-panel');
+            if (trPanel) {
+                const willOpen = trPanel.classList.contains('hidden');
+                trPanel.classList.toggle('hidden');
+                if (trSel) trSel.setAttribute('data-open', willOpen ? '1' : '0');
+            }
+            return;
+        }
+        // 时间范围下拉项
+        const trItem = e.target.closest('.lo-qps-tr-item');
+        if (trItem) {
+            e.stopPropagation();
+            const v = trItem.getAttribute('data-val');
+            const valEl = wrap.querySelector('.lo-qps-tr-value');
+            if (valEl) valEl.textContent = v;
+            wrap.querySelectorAll('.lo-qps-tr-item').forEach(it => it.classList.toggle('active', it === trItem));
+            const trPanel = wrap.querySelector('.lo-qps-tr-panel');
+            const trSel = wrap.querySelector('.lo-qps-tr-select');
+            if (trPanel) trPanel.classList.add('hidden');
+            if (trSel) trSel.setAttribute('data-open', '0');
+            wrap.setAttribute('data-active-tr', v);
+            // 重新渲染（点位会按当前时间范围重映射 X 轴 label）
+            renderLoQpsChartContent(wrap);
+            return;
+        }
         // 状态快筛 chip
         const chip = e.target.closest('.lo-iface-chip');
         if (chip) {
@@ -3091,6 +4366,11 @@ function bindLoQpsChartEvents(rootEl) {
             rootEl.querySelectorAll('.lo-iface-select-panel').forEach(p => p.classList.add('hidden'));
             rootEl.querySelectorAll('.lo-iface-select').forEach(s => s.setAttribute('data-open', '0'));
         }
+        const insideTr = e.target.closest && e.target.closest('.lo-qps-tr-select');
+        if (!insideTr) {
+            rootEl.querySelectorAll('.lo-qps-tr-panel').forEach(p => p.classList.add('hidden'));
+            rootEl.querySelectorAll('.lo-qps-tr-select').forEach(s => s.setAttribute('data-open', '0'));
+        }
     });
     rootEl._loQpsBound = true;
 }
@@ -3183,7 +4463,7 @@ function handleLoQpsMove(evt) {
     let region = 'normal';
     if (yQps >= limitVal) region = 'limit';
     else if (yQps >= waterVal) region = 'warn';
-    showLoQpsTip(evt, selLines, idx, limitVal, waterVal, region, yQps);
+    showLoQpsTip(evt, selLines, idx, limitVal, waterVal, region);
 }
 
 // QPS 图 hover tooltip
@@ -3197,17 +4477,17 @@ function handleLoQpsMove(evt) {
 //   C. 鼠标 Y 处于「预警水位线以下」：常规 tooltip，展示时间 + 当前
 //      QPS + 距离预警水位的余量百分比。
 // ============================================================
-function showLoQpsTip(evt, selLines, idx, limitVal, waterVal, region, yQps) {
+function showLoQpsTip(evt, selLines, idx, limitVal, waterVal, region) {
     if (!evt) return;
     const wrap = evt.currentTarget && evt.currentTarget.closest ? evt.currentTarget.closest('.lo-qps-chart-wrap') : null;
     if (!wrap) return;
     const tip = wrap.querySelector('.lo-qps-tip');
     if (!tip || !Array.isArray(selLines) || selLines.length === 0) return;
+    // 已固定的 tip 不被 hover 移动事件刷新
+    if (tip.classList.contains('lo-qps-tip-pinned')) return;
     const fmtVal = (v) => v >= 1000 ? (v / 1000).toFixed(2) + 'k' : v.toFixed(0);
     const fmtUnit = (v) => fmtVal(v) + ' req/s';
-    const time = (selLines[0].pts[idx] && selLines[0].pts[idx].time) || '-';
     const curTs = (selLines[0].pts[idx] && selLines[0].pts[idx].ts) || 0;
-    const dim = wrap.getAttribute('data-dim') || '接口';
 
     // 解析 events
     let events = [];
@@ -3248,43 +4528,42 @@ function showLoQpsTip(evt, selLines, idx, limitVal, waterVal, region, yQps) {
         return candidates[0];
     }
 
-    // 多线对比行（始终展示）
-    const rowsHtml = selLines.map(l => {
-        const p = l.pts[idx];
-        if (!p) return '';
-        let kind = '';
-        if (p.v >= limitVal) kind = 'limit';
-        else if (p.v >= waterVal) kind = 'warn';
-        const kindBadge = kind === 'limit'
-            ? '<span class="lo-qps-tip-kind lo-qps-tip-kind-limit">限流</span>'
-            : kind === 'warn'
-                ? '<span class="lo-qps-tip-kind lo-qps-tip-kind-warn">预警</span>'
-                : '';
-        return `
-            <div class="lo-qps-tip-line">
-                <span class="lo-qps-tip-color" style="background:${l.color}"></span>
-                <span class="lo-qps-tip-name" title="${l.name}">${l.name}</span>
-                <span class="lo-qps-tip-val">${fmtVal(p.v)}</span>
-                ${kindBadge}
-            </div>
-        `;
-    }).join('');
-
     // 卡片渲染（基于鼠标 Y 区域）
     let cardHtml = '';
+    const renderRow = (k, v) => `<div class="lo-qps-tip-card-row"><span class="lo-qps-tip-card-k">${k}</span><span class="lo-qps-tip-card-v" title="${v}">${v}</span></div>`;
     if (region === 'limit') {
         // 区域 A：限流卡片（仅当 ±2min 内有匹配事件时展示）
         const ev = matchEvent('limit');
         if (ev) {
+            const m = ev.meta || {};
+            const isKey = !!m.customKey;
+            const rows = isKey
+                ? [
+                    renderRow('限流场景', m.scene || '-'),
+                    renderRow('调用方服务', m.callerSvc || '-'),
+                    renderRow('被调用方服务', m.calleeSvc || '-'),
+                    renderRow('自定义key', m.customKey || '-'),
+                    renderRow('限流值', fmtUnit(ev.limitValue)),
+                    renderRow('流量值', fmtUnit(ev.trafficValue)),
+                    renderRow('触发时间', fmtTs(ev.triggerTime)),
+                    renderRow('持续时长', fmtDuration(ev.duration))
+                ].join('')
+                : [
+                    renderRow('调用方服务', m.callerSvc || '-'),
+                    renderRow('调用方集群', m.callerCluster || '-'),
+                    renderRow('被调用方服务', m.calleeSvc || '-'),
+                    renderRow('被调用方集群', m.calleeCluster || '-'),
+                    renderRow('限流接口', m.calleeIface || '-'),
+                    renderRow('限流类型', ev.limitType),
+                    renderRow('限流值', fmtUnit(ev.limitValue)),
+                    renderRow('流量值', fmtUnit(ev.trafficValue)),
+                    renderRow('触发时间', fmtTs(ev.triggerTime)),
+                    renderRow('持续时长', fmtDuration(ev.duration))
+                ].join('');
             cardHtml = `
                 <div class="lo-qps-tip-card lo-qps-tip-card-limit">
                     <div class="lo-qps-tip-card-title"><span class="lo-qps-tip-dot lo-qps-tip-dot-limit"></span>限流事件</div>
-                    <div class="lo-qps-tip-card-row"><span class="lo-qps-tip-card-k">限流${dim}</span><span class="lo-qps-tip-card-v" title="${ev.apiName}">${ev.apiName}</span></div>
-                    <div class="lo-qps-tip-card-row"><span class="lo-qps-tip-card-k">限流类型</span><span class="lo-qps-tip-card-v">${ev.limitType}</span></div>
-                    <div class="lo-qps-tip-card-row"><span class="lo-qps-tip-card-k">限流值</span><span class="lo-qps-tip-card-v">${fmtUnit(ev.limitValue)}</span></div>
-                    <div class="lo-qps-tip-card-row"><span class="lo-qps-tip-card-k">流量值</span><span class="lo-qps-tip-card-v">${fmtUnit(ev.trafficValue)}</span></div>
-                    <div class="lo-qps-tip-card-row"><span class="lo-qps-tip-card-k">触发时间</span><span class="lo-qps-tip-card-v">${fmtTs(ev.triggerTime)}</span></div>
-                    <div class="lo-qps-tip-card-row"><span class="lo-qps-tip-card-k">持续时长</span><span class="lo-qps-tip-card-v">${fmtDuration(ev.duration)}</span></div>
+                    ${rows}
                 </div>
             `;
         }
@@ -3292,39 +4571,48 @@ function showLoQpsTip(evt, selLines, idx, limitVal, waterVal, region, yQps) {
         // 区域 B：预警卡片
         const ev = matchEvent('warning');
         if (ev) {
+            const m = ev.meta || {};
+            const isKey = !!m.customKey;
             const waterPct = Math.round(ev.waterLevel * 100) + '%';
+            const rows = isKey
+                ? [
+                    renderRow('限流场景', m.scene || '-'),
+                    renderRow('调用方服务', m.callerSvc || '-'),
+                    renderRow('被调用方服务', m.calleeSvc || '-'),
+                    renderRow('自定义key', m.customKey || '-'),
+                    renderRow('限流值', fmtUnit(ev.limitValue)),
+                    renderRow('预警水位', waterPct),
+                    renderRow('流量值', fmtUnit(ev.trafficValue)),
+                    renderRow('触发时间', fmtTs(ev.triggerTime)),
+                    renderRow('持续时长', fmtDuration(ev.duration))
+                ].join('')
+                : [
+                    renderRow('调用方服务', m.callerSvc || '-'),
+                    renderRow('调用方集群', m.callerCluster || '-'),
+                    renderRow('被调用方服务', m.calleeSvc || '-'),
+                    renderRow('被调用方集群', m.calleeCluster || '-'),
+                    renderRow('被调用方接口', m.calleeIface || '-'),
+                    renderRow('限流类型', ev.limitType),
+                    renderRow('限流值', fmtUnit(ev.limitValue)),
+                    renderRow('预警水位', waterPct),
+                    renderRow('流量值', fmtUnit(ev.trafficValue)),
+                    renderRow('触发时间', fmtTs(ev.triggerTime))
+                ].join('');
             cardHtml = `
                 <div class="lo-qps-tip-card lo-qps-tip-card-warn">
                     <div class="lo-qps-tip-card-title"><span class="lo-qps-tip-dot lo-qps-tip-dot-warn"></span>预警事件</div>
-                    <div class="lo-qps-tip-card-row"><span class="lo-qps-tip-card-k">限流${dim}</span><span class="lo-qps-tip-card-v" title="${ev.apiName}">${ev.apiName}</span></div>
-                    <div class="lo-qps-tip-card-row"><span class="lo-qps-tip-card-k">限流类型</span><span class="lo-qps-tip-card-v">${ev.limitType}</span></div>
-                    <div class="lo-qps-tip-card-row"><span class="lo-qps-tip-card-k">限流值</span><span class="lo-qps-tip-card-v">${fmtUnit(ev.limitValue)}</span></div>
-                    <div class="lo-qps-tip-card-row"><span class="lo-qps-tip-card-k">预警水位</span><span class="lo-qps-tip-card-v">${waterPct}</span></div>
-                    <div class="lo-qps-tip-card-row"><span class="lo-qps-tip-card-k">流量值</span><span class="lo-qps-tip-card-v">${fmtUnit(ev.trafficValue)}</span></div>
-                    <div class="lo-qps-tip-card-row"><span class="lo-qps-tip-card-k">触发时间</span><span class="lo-qps-tip-card-v">${fmtTs(ev.triggerTime)}</span></div>
-                    <div class="lo-qps-tip-card-row"><span class="lo-qps-tip-card-k">持续时长</span><span class="lo-qps-tip-card-v">${fmtDuration(ev.duration)}</span></div>
+                    ${rows}
                 </div>
             `;
         }
     }
 
-    // 区域 C：在预警水位线以下追加余量百分比（基于鼠标 Y 处的 yQps，若未传入则用关键线 v）
-    let footerHtml = '';
-    if (region === 'normal') {
-        let refV = (typeof yQps === 'number' && yQps > 0) ? yQps : 0;
-        if (!refV) {
-            selLines.forEach(l => { const p = l.pts[idx]; if (p && p.v > refV) refV = p.v; });
-        }
-        const remainPct = Math.max(0, ((waterVal - refV) / waterVal) * 100);
-        footerHtml = `<div class="lo-qps-tip-footer">距离预警水位余量 ${remainPct.toFixed(1)}%</div>`;
+    // 仅展示事件卡片（限流/预警），无卡片则隐藏整个 tip
+    if (!cardHtml) {
+        tip.classList.add('hidden');
+        return;
     }
-
-    tip.innerHTML = `
-        <div class="lo-qps-tip-title">${time}</div>
-        ${rowsHtml}
-        ${footerHtml}
-        ${cardHtml}
-    `;
+    tip.innerHTML = cardHtml;
     // 计算位置
     const wrapRect = wrap.getBoundingClientRect();
     let x = evt.clientX - wrapRect.left + 12;
@@ -3344,7 +4632,31 @@ function showLoQpsTip(evt, selLines, idx, limitVal, waterVal, region, yQps) {
 }
 
 function hideLoQpsTip() {
-    document.querySelectorAll('.lo-qps-tip').forEach(t => t.classList.add('hidden'));
+    document.querySelectorAll('.lo-qps-tip').forEach(t => {
+        // 已固定的 tip 不被 mouseleave 关闭
+        if (t.classList.contains('lo-qps-tip-pinned')) return;
+        t.classList.add('hidden');
+    });
+}
+
+// 点击图表区域：切换 tip 的 pinned 状态
+function toggleLoQpsTipPinned(evt) {
+    if (!evt) return;
+    const target = evt.currentTarget;
+    const wrap = target && target.closest ? target.closest('.lo-qps-chart-wrap') : null;
+    if (!wrap) return;
+    const tip = wrap.querySelector('.lo-qps-tip');
+    if (!tip) return;
+    if (tip.classList.contains('lo-qps-tip-pinned')) {
+        // 已固定 → 取消固定并隐藏
+        tip.classList.remove('lo-qps-tip-pinned');
+        tip.classList.add('hidden');
+        return;
+    }
+    // 未固定 → 若当前 tip 已显示（hover 状态），则固定到当前位置；否则不操作
+    if (!tip.classList.contains('hidden') && tip.innerHTML.trim()) {
+        tip.classList.add('lo-qps-tip-pinned');
+    }
 }
 
 // 限流详情 drawer（保留 DOM，提供基础打开/关闭函数；当前 lo-config-action 已直接跳转限流器页）
@@ -3413,6 +4725,74 @@ function saveLoLimitDetail() {
 function closeLoNodeDrawer() {
     const drawer = document.getElementById('loNodeDrawer');
     if (drawer) drawer.classList.add('hidden');
+}
+
+// 链路查询结果筛选项 - 下拉搜索建议（候选值来源于当前结果数据）
+function setupLoListFilterSuggest() {
+    const root = document.getElementById('loListView');
+    if (!root || root._suggestBound) return;
+    root._suggestBound = true;
+
+    const fieldInputId = {
+        callerSvc: 'loListFCallerSvc',
+        callerCluster: 'loListFCallerCluster',
+        callerIface: 'loListFCallerIface',
+        calleeSvc: 'loListFCalleeSvc',
+        calleeCluster: 'loListFCalleeCluster',
+        calleeIface: 'loListFCalleeIface'
+    };
+    void fieldInputId;
+
+    function getOptions(field) {
+        const data = (typeof loTopologyData === 'object' && loTopologyData) || null;
+        if (!data || !data.target) return [];
+        const t = data.target;
+        const ds = data.downstream || [];
+        const set = new Set();
+        if (field === 'callerSvc') set.add(t.psm);
+        else if (field === 'callerCluster') set.add(t.cluster || '-');
+        else if (field === 'callerIface') set.add(t.invokeMethod || '-');
+        else if (field === 'calleeSvc') ds.forEach(n => set.add(n.psm));
+        else if (field === 'calleeCluster') ds.forEach(n => set.add(n.cluster || '-'));
+        else if (field === 'calleeIface') ds.forEach(n => set.add(n.invokeMethod || '-'));
+        return Array.from(set).filter(v => v && v !== '-');
+    }
+
+    function renderPop(item) {
+        const field = item.getAttribute('data-field');
+        const input = item.querySelector('input');
+        const pop = item.querySelector('.lo-list-filter-pop');
+        if (!field || !input || !pop) return;
+        const kw = (input.value || '').toLowerCase().trim();
+        const options = getOptions(field).filter(v => !kw || String(v).toLowerCase().includes(kw));
+        if (!options.length) {
+            pop.innerHTML = `<div class="lo-list-filter-pop-empty">无匹配项</div>`;
+        } else {
+            pop.innerHTML = options.map(v => `<div class="lo-list-filter-pop-item" data-val="${v}">${v}</div>`).join('');
+        }
+        pop.classList.remove('hidden');
+    }
+
+    root.querySelectorAll('.lo-list-filter-suggest').forEach(item => {
+        const input = item.querySelector('input');
+        const pop = item.querySelector('.lo-list-filter-pop');
+        if (!input || !pop) return;
+        input.addEventListener('focus', () => renderPop(item));
+        input.addEventListener('input', () => renderPop(item));
+        item.addEventListener('mousedown', (e) => {
+            const opt = e.target.closest('.lo-list-filter-pop-item');
+            if (!opt) return;
+            e.preventDefault();
+            input.value = opt.getAttribute('data-val') || '';
+            pop.classList.add('hidden');
+            renderLoList();
+        });
+    });
+
+    document.addEventListener('pointerdown', (e) => {
+        if (e.target.closest('.lo-list-filter-suggest')) return;
+        root.querySelectorAll('.lo-list-filter-pop').forEach(p => p.classList.add('hidden'));
+    }, true);
 }
 
 // History Config Drawer
@@ -3648,7 +5028,7 @@ function bindHcBulkHandlers() {
 function applyHistoryConfig(cfg) {
     const v = cfg._values || {};
     // 简单字段直接写 input.value
-    ['loEntry', 'loVDC', 'loCluster', 'loTimeRange', 'loDepType', 'loPriority', 'loSvcType', 'loUpLevel', 'loDownLevel'].forEach(k => {
+    ['loEntry', 'loVDC', 'loCluster', 'loTimeRange', 'loDepType', 'loPriority', 'loSvcType', 'loDept', 'loUpLevel', 'loDownLevel'].forEach(k => {
         const el = document.getElementById(k);
         if (el) el.value = v[k] || '';
     });
@@ -3683,7 +5063,7 @@ const loConfigState = {
 };
 
 function collectLoFilterValues() {
-    const ids = ['loEntry', 'loVDC', 'loCluster', 'loTimeRange', 'loDepType', 'loPriority', 'loSvcType', 'loUpLevel', 'loDownLevel'];
+    const ids = ['loEntry', 'loVDC', 'loCluster', 'loTimeRange', 'loDepType', 'loPriority', 'loSvcType', 'loDept', 'loUpLevel', 'loDownLevel'];
     const values = {};
     ids.forEach(id => {
         const el = document.getElementById(id);
@@ -3726,7 +5106,7 @@ function restoreLoFilterDraft() {
 
     // 清空所有筛选项 DOM
     ['loEntry', 'loVDC', 'loCluster', 'loTimeRange', 'loDepType', 'loPriority',
-     'loSvcType', 'loUpLevel', 'loDownLevel'].forEach(id => {
+     'loSvcType', 'loDept', 'loUpLevel', 'loDownLevel'].forEach(id => {
         const el = document.getElementById(id);
         if (el) el.value = '';
     });
@@ -3783,7 +5163,7 @@ function initLoFilterWatch() {
         updateLoGenerateDot();
         persistLoFilterDraft();
     };
-    const fields = ['loEntry', 'loVDC', 'loCluster', 'loTimeRange', 'loDepType', 'loPriority', 'loSvcType', 'loUpLevel', 'loDownLevel'];
+    const fields = ['loEntry', 'loVDC', 'loCluster', 'loTimeRange', 'loDepType', 'loPriority', 'loSvcType', 'loDept', 'loUpLevel', 'loDownLevel'];
     fields.forEach(id => {
         const el = document.getElementById(id);
         if (el) {

@@ -2919,39 +2919,81 @@ input:checked + .slider:before {
     font-size: 12px;
     vertical-align: middle;
     white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
 }
 
-/* 列表视图：合理排布列宽 + 长服务名 ellipsis（hover 展示全称） */
+/* 列表视图：14 列合理排布 + 横向滚动兜底，确保完整展示 */
+.lo-list-view .table-card {
+    overflow-x: auto;
+}
 .lo-list-table {
     table-layout: fixed;
     width: 100%;
+    min-width: 1680px;
 }
+/* 1 调用方服务 */
 .lo-list-table th:nth-child(1),
-.lo-list-table td:nth-child(1) { width: 14%; }
+.lo-list-table td:nth-child(1) { width: 180px; }
+/* 2 调用方集群 */
 .lo-list-table th:nth-child(2),
-.lo-list-table td:nth-child(2) { width: 8%; }
+.lo-list-table td:nth-child(2) { width: 110px; }
+/* 3 调用方接口 */
 .lo-list-table th:nth-child(3),
-.lo-list-table td:nth-child(3) { width: 18%; }
+.lo-list-table td:nth-child(3) { width: 140px; }
+/* 4 被调用方服务 */
 .lo-list-table th:nth-child(4),
-.lo-list-table td:nth-child(4) { width: 8%; }
+.lo-list-table td:nth-child(4) { width: 220px; }
+/* 5 被调用方集群 */
 .lo-list-table th:nth-child(5),
-.lo-list-table td:nth-child(5) { width: 12%; }
+.lo-list-table td:nth-child(5) { width: 110px; }
+/* 6 被调用方接口 */
 .lo-list-table th:nth-child(6),
-.lo-list-table td:nth-child(6) { width: 6%; }
+.lo-list-table td:nth-child(6) { width: 160px; }
+/* 7 限流值 */
 .lo-list-table th:nth-child(7),
-.lo-list-table td:nth-child(7) { width: 8%; }
+.lo-list-table td:nth-child(7) { width: 80px; }
+/* 8 限流类型 */
 .lo-list-table th:nth-child(8),
-.lo-list-table td:nth-child(8) { width: 7%; }
+.lo-list-table td:nth-child(8) { width: 100px; }
+/* 9 限流模式 */
 .lo-list-table th:nth-child(9),
-.lo-list-table td:nth-child(9) { width: 6%; }
+.lo-list-table td:nth-child(9) { width: 90px; }
+/* 10 流量 Max */
 .lo-list-table th:nth-child(10),
-.lo-list-table td:nth-child(10) { width: 6%; }
+.lo-list-table td:nth-child(10) { width: 90px; }
+/* 11 流量 Avg */
 .lo-list-table th:nth-child(11),
-.lo-list-table td:nth-child(11) { width: 6%; }
+.lo-list-table td:nth-child(11) { width: 100px; }
+/* 12 流量 P99 */
 .lo-list-table th:nth-child(12),
-.lo-list-table td:nth-child(12) { width: 6%; }
+.lo-list-table td:nth-child(12) { width: 90px; }
+/* 13 CPU 利用率 */
 .lo-list-table th:nth-child(13),
-.lo-list-table td:nth-child(13) { width: 5%; text-align: center; }
+.lo-list-table td:nth-child(13) { width: 90px; }
+/* 14 操作 */
+.lo-list-table th:nth-child(14),
+.lo-list-table td:nth-child(14) {
+    width: 80px;
+    text-align: center;
+    position: sticky;
+    right: 0;
+    background: #fff;
+    box-shadow: -6px 0 8px -6px rgba(0,0,0,.08);
+}
+.lo-list-table thead th:nth-child(14) {
+    background: #fafafa;
+}
+
+/* 观测粒度联动：列表展示字段固定（服务/集群/接口/流量/操作），不再随粒度隐藏列；
+   仅服务粒度时隐藏「调用方接口/被调用方接口」筛选项（列表仍展示对应列） */
+.lo-list-table {
+    min-width: 1280px;
+}
+.lo-list-mode-svc .lo-list-filter-callerIface,
+.lo-list-mode-svc .lo-list-filter-calleeIface {
+    display: none;
+}
 
 .lo-list-cell-ellipsis {
     display: inline-block;
@@ -2961,6 +3003,15 @@ input:checked + .slider:before {
     white-space: nowrap;
     vertical-align: middle;
     cursor: default;
+}
+
+/* 新保存的链路在列表中短暂高亮提示 */
+.lo-links-row-flash > td {
+    animation: loLinksRowFlash 1.6s ease-out 2;
+}
+@keyframes loLinksRowFlash {
+    0% { background-color: rgba(19, 194, 194, 0.18); }
+    100% { background-color: transparent; }
 }
 
 /* ========== Link Observation 节点详情 - 新版样式 ========== */
@@ -3171,7 +3222,8 @@ input:checked + .slider:before {
 .lo-qps-tip {
     position: absolute;
     z-index: 20;
-    min-width: 220px;
+    min-width: 320px;
+    max-width: 480px;
     background: #fff;
     border: 1px solid #e8e8e8;
     border-radius: 6px;
@@ -3182,6 +3234,11 @@ input:checked + .slider:before {
     pointer-events: none;
 }
 .lo-qps-tip.hidden { display: none !important; }
+.lo-qps-tip-pinned {
+    pointer-events: auto;
+    box-shadow: 0 8px 22px rgba(0, 0, 0, 0.18);
+    border-color: #91caff;
+}
 .lo-qps-tip-title {
     font-weight: 600;
     margin-bottom: 8px;
@@ -3330,6 +3387,75 @@ input:checked + .slider:before {
     flex-direction: column;
 }
 .lo-iface-select-panel.hidden { display: none; }
+
+/* 流量趋势图：时间范围下拉（近 5mins ~ 近 7 天） */
+.lo-qps-tr-select {
+    position: relative;
+    display: inline-flex;
+    flex-shrink: 0;
+    margin-left: 8px;
+    font-size: 12px;
+}
+.lo-qps-tr-trigger {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    height: 28px;
+    padding: 0 10px;
+    border: 1px solid #d9d9d9;
+    border-radius: 6px;
+    background: #fff;
+    color: #1f1f1f;
+    cursor: pointer;
+    user-select: none;
+    transition: border-color 0.2s, box-shadow 0.2s;
+    white-space: nowrap;
+}
+.lo-qps-tr-trigger:hover {
+    border-color: #13a8a8;
+}
+.lo-qps-tr-select[data-open="1"] .lo-qps-tr-trigger,
+.lo-qps-tr-trigger:focus {
+    border-color: #13a8a8;
+    box-shadow: 0 0 0 2px rgba(19, 168, 168, 0.12);
+    outline: none;
+}
+.lo-qps-tr-value {
+    color: #1f1f1f;
+}
+.lo-qps-tr-arrow {
+    color: #8c8c8c;
+    font-size: 12px;
+}
+.lo-qps-tr-panel {
+    position: absolute;
+    top: calc(100% + 4px);
+    right: 0;
+    z-index: 30;
+    min-width: 120px;
+    background: #fff;
+    border: 1px solid #e8e8e8;
+    border-radius: 6px;
+    box-shadow: 0 6px 16px rgba(0, 0, 0, 0.08);
+    padding: 4px;
+}
+.lo-qps-tr-panel.hidden { display: none; }
+.lo-qps-tr-item {
+    padding: 6px 10px;
+    border-radius: 4px;
+    cursor: pointer;
+    color: #1f1f1f;
+    transition: background 0.15s;
+    white-space: nowrap;
+}
+.lo-qps-tr-item:hover {
+    background: #f5f5f5;
+}
+.lo-qps-tr-item.active {
+    background: rgba(19, 168, 168, 0.08);
+    color: #13a8a8;
+    font-weight: 500;
+}
 .lo-iface-select-search {
     padding: 4px;
 }
@@ -3501,6 +3627,30 @@ input:checked + .slider:before {
     flex-shrink: 0;
 }
 
+/* 限流规则类型标签：接口限流 / 自定义 Key 限流 */
+.lo-iface-kind {
+    display: inline-flex;
+    align-items: center;
+    height: 18px;
+    padding: 0 6px;
+    border: 1px solid;
+    border-radius: 4px;
+    font-size: 11px;
+    line-height: 1;
+    flex-shrink: 0;
+    margin-right: 6px;
+}
+.lo-iface-kind-iface {
+    background: #e6f7ff;
+    color: #096dd9;
+    border-color: #91d5ff;
+}
+.lo-iface-kind-key {
+    background: #f9f0ff;
+    color: #531dab;
+    border-color: #d3adf7;
+}
+
 /* 趋势图底部图名（caption） */
 .lo-qps-chart-caption {
     margin-top: 8px;
@@ -3630,7 +3780,8 @@ input:checked + .slider:before {
 .lo-qps-tip-card-k {
     color: #8c8c8c;
     flex-shrink: 0;
-    width: 64px;
+    width: 88px;
+    white-space: nowrap;
 }
 .lo-qps-tip-card-v {
     color: #1f1f1f;
@@ -3640,7 +3791,7 @@ input:checked + .slider:before {
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
-    max-width: 200px;
+    max-width: 360px;
 }
 .lo-qps-tip-ticket {
     color: #1677ff;
@@ -3861,10 +4012,119 @@ input:checked + .slider:before {
 }
 .lo-list-filter-grid {
     display: grid;
-    grid-template-columns: repeat(4, 1fr);
+    grid-template-columns: repeat(5, 1fr);
     gap: 16px 24px;
     align-items: end;
 }
+
+/* 链路入口 级联下拉 */
+.lo-filter-cascade,
+.lo-filter-tree {
+    position: relative;
+    width: 100%;
+}
+.lo-filter-cascade input,
+.lo-filter-tree input {
+    cursor: pointer;
+    background: #fff;
+}
+.lo-filter-cascade-panel {
+    position: absolute;
+    top: calc(100% + 4px);
+    left: 0;
+    z-index: 100;
+    background: #fff;
+    border: 1px solid #e5e6eb;
+    border-radius: 4px;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.12);
+    display: flex;
+    min-width: 460px;
+    max-height: 320px;
+}
+.lo-cas-col {
+    flex: 1;
+    overflow-y: auto;
+    padding: 4px 0;
+    border-right: 1px solid #f0f0f0;
+    min-width: 200px;
+}
+.lo-cas-col:last-child { border-right: none; }
+.lo-cas-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 6px 12px;
+    font-size: 13px;
+    color: #1f1f1f;
+    cursor: pointer;
+}
+.lo-cas-item:hover { background: #f5f5f5; }
+.lo-cas-item.active {
+    background: rgba(19, 194, 194, 0.08);
+    color: #13c2c2;
+}
+.lo-cas-arrow { color: #bfbfbf; font-size: 12px; }
+.lo-cas-method { padding: 6px 12px; }
+.lo-cas-empty {
+    padding: 16px;
+    color: #bfbfbf;
+    font-size: 12px;
+    text-align: center;
+}
+
+/* 部门 树形下拉 */
+.lo-filter-tree-panel {
+    position: absolute;
+    top: calc(100% + 4px);
+    left: 0;
+    z-index: 100;
+    background: #fff;
+    border: 1px solid #e5e6eb;
+    border-radius: 4px;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.12);
+    width: 320px;
+    max-height: 360px;
+    display: flex;
+    flex-direction: column;
+}
+.lo-tree-search {
+    padding: 8px;
+    border-bottom: 1px solid #f0f0f0;
+}
+.lo-tree-search-input {
+    height: 28px;
+    font-size: 12px;
+}
+.lo-tree-body {
+    flex: 1;
+    overflow-y: auto;
+    padding: 4px 0;
+}
+.lo-tree-node {
+    display: flex;
+    align-items: center;
+    padding: 6px 8px;
+    font-size: 13px;
+    color: #1f1f1f;
+    cursor: pointer;
+    user-select: none;
+}
+.lo-tree-node:hover { background: #f5f5f5; }
+.lo-tree-arrow {
+    display: inline-block;
+    width: 14px;
+    color: #8c8c8c;
+    font-size: 10px;
+    transition: transform 0.15s;
+    margin-right: 4px;
+}
+.lo-tree-arrow.open { transform: rotate(90deg); }
+.lo-tree-arrow-placeholder {
+    display: inline-block;
+    width: 14px;
+    margin-right: 4px;
+}
+.lo-tree-label { flex: 1; }
 .lo-list-filter-grid .lo-filter-field { position: relative; }
 .lo-list-filter-grid .lo-filter-field label {
     display: block;
@@ -4053,6 +4313,87 @@ input:checked + .slider:before {
     justify-content: center;
 }
 
+/* 链接式操作按钮（详情 / 删除） */
+.lo-links-act-link {
+    background: transparent;
+    border: none;
+    padding: 0;
+    margin: 0;
+    cursor: pointer;
+    color: #13c2c2;
+    font-size: 13px;
+    line-height: 1;
+    user-select: none;
+}
+.lo-links-act-link:hover { text-decoration: underline; }
+.lo-links-act-link + .lo-links-act-link {
+    margin-left: 12px;
+    padding-left: 12px;
+    border-left: 1px solid #f0f0f0;
+}
+.lo-links-act-link-danger { color: #ff4d4f; }
+
+/* 链路列表 Tab 切换 */
+.lo-list-tabs {
+    display: flex;
+    align-items: center;
+    gap: 24px;
+    padding: 8px 16px 0;
+    border-bottom: 1px solid #f0f0f0;
+    background: #fff;
+}
+.lo-list-tab {
+    position: relative;
+    padding: 10px 0;
+    font-size: 14px;
+    color: #595959;
+    cursor: pointer;
+    transition: color .12s;
+}
+.lo-list-tab:hover { color: #13c2c2; }
+.lo-list-tab.active {
+    color: #13c2c2;
+    font-weight: 500;
+}
+.lo-list-tab.active::after {
+    content: '';
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: -1px;
+    height: 2px;
+    background: #13c2c2;
+}
+
+/* 筛选操作区（重置 / 查询）放第二排，靠右 */
+.lo-list-filter-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 8px;
+    margin-top: 8px;
+    padding-top: 12px;
+    border-top: 1px dashed #f0f0f0;
+}
+
+/* 链路列表表格固定列宽（共 8 列） */
+.lo-links-table { table-layout: fixed; }
+.lo-links-table th:nth-child(1),
+.lo-links-table td:nth-child(1) { width: 18%; }
+.lo-links-table th:nth-child(2),
+.lo-links-table td:nth-child(2) { width: 18%; }
+.lo-links-table th:nth-child(3),
+.lo-links-table td:nth-child(3) { width: 14%; }
+.lo-links-table th:nth-child(4),
+.lo-links-table td:nth-child(4) { width: 10%; }
+.lo-links-table th:nth-child(5),
+.lo-links-table td:nth-child(5) { width: 10%; }
+.lo-links-table th:nth-child(6),
+.lo-links-table td:nth-child(6) { width: 7%; }
+.lo-links-table th:nth-child(7),
+.lo-links-table td:nth-child(7) { width: 13%; }
+.lo-links-table th:nth-child(8),
+.lo-links-table td:nth-child(8) { width: 10%; }
+
 .lo-links-empty {
     padding: 48px 16px;
     text-align: center;
@@ -4185,3 +4526,442 @@ input:checked + .slider:before {
     color: #149f9a;
     text-decoration: underline;
 }
+
+/* ============= 删除链路确认弹窗 ============= */
+.lo-confirm-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.45);
+    z-index: 3000;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    animation: loConfirmFadeIn .15s ease-out;
+}
+.lo-confirm-overlay.hidden { display: none; }
+@keyframes loConfirmFadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+}
+.lo-confirm-dialog {
+    width: 480px;
+    max-width: calc(100vw - 32px);
+    background: #fff;
+    border-radius: 6px;
+    box-shadow: 0 12px 32px rgba(0, 0, 0, 0.16);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    animation: loConfirmZoomIn .18s ease-out;
+}
+@keyframes loConfirmZoomIn {
+    from { transform: scale(0.92); opacity: 0; }
+    to { transform: scale(1); opacity: 1; }
+}
+.lo-confirm-header {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 20px 24px 8px;
+}
+.lo-confirm-icon {
+    flex-shrink: 0;
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    background: #faad14;
+    color: #fff;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 700;
+    font-size: 14px;
+    font-style: normal;
+}
+.lo-confirm-title {
+    font-size: 16px;
+    font-weight: 500;
+    color: #1f1f1f;
+    line-height: 1.4;
+}
+.lo-confirm-body {
+    padding: 4px 24px 16px 60px;
+}
+.lo-confirm-tip {
+    font-size: 13px;
+    color: #595959;
+    line-height: 1.6;
+    margin-bottom: 12px;
+}
+.lo-confirm-target {
+    background: #fafafa;
+    border: 1px solid #f0f0f0;
+    border-radius: 4px;
+    padding: 10px 12px;
+    font-size: 12px;
+}
+.lo-confirm-target-row {
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+    line-height: 1.8;
+}
+.lo-confirm-target-label {
+    flex-shrink: 0;
+    width: 64px;
+    color: #8c8c8c;
+}
+.lo-confirm-target-value {
+    color: #262626;
+    word-break: break-all;
+    flex: 1;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+.lo-confirm-footer {
+    display: flex;
+    justify-content: flex-end;
+    gap: 8px;
+    padding: 12px 24px 20px;
+    background: #fff;
+}
+.lo-confirm-footer .btn {
+    min-width: 88px;
+    height: 32px;
+    line-height: 30px;
+    padding: 0 16px;
+}
+.btn.btn-danger {
+    background: #ff4d4f;
+    color: #fff;
+    border: 1px solid #ff4d4f;
+}
+.btn.btn-danger:hover {
+    background: #ff7875;
+    border-color: #ff7875;
+}
+.btn.btn-danger:active {
+    background: #d9363e;
+    border-color: #d9363e;
+}
+
+/* ============= 链路查询结果 - 列表视图筛选行 ============= */
+.lo-list-filter-row {
+    display: flex;
+    flex-wrap: nowrap;
+    align-items: center;
+    gap: 8px;
+    padding: 12px;
+    background: #fff;
+}
+.lo-list-filter-item {
+    display: inline-flex;
+    align-items: stretch;
+    border: 1px solid #d9d9d9;
+    border-radius: 4px;
+    overflow: hidden;
+    background: #fff;
+    height: 32px;
+    transition: border-color .15s;
+    flex: 1 1 0;
+    min-width: 0;
+}
+.lo-list-filter-item:focus-within {
+    border-color: #13c2c2;
+}
+.lo-list-filter-label {
+    display: inline-flex;
+    align-items: center;
+    padding: 0 10px;
+    background: #fafafa;
+    color: #595959;
+    font-size: 12px;
+    border-right: 1px solid #f0f0f0;
+    white-space: nowrap;
+    flex-shrink: 0;
+}
+.lo-list-filter-input.form-control.small {
+    border: none;
+    box-shadow: none;
+    height: 30px;
+    padding: 0 10px;
+    width: 100%;
+    min-width: 0;
+    font-size: 12px;
+    background: transparent;
+}
+.lo-list-filter-input.form-control.small:focus {
+    box-shadow: none;
+    outline: none;
+}
+.lo-list-filter-reset {
+    width: 32px;
+    height: 32px;
+    padding: 0;
+    border: 1px solid #d9d9d9;
+    background: #fff;
+    color: #8c8c8c;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 14px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+}
+.lo-list-filter-reset:hover {
+    color: #13c2c2;
+    border-color: #13c2c2;
+}
+
+/* 下拉搜索建议 */
+.lo-list-filter-suggest { position: relative; }
+.lo-list-filter-pop {
+    position: absolute;
+    top: calc(100% + 4px);
+    left: 0;
+    right: 0;
+    background: #fff;
+    border: 1px solid #e8e8e8;
+    border-radius: 4px;
+    box-shadow: 0 4px 12px rgba(0,0,0,.08);
+    z-index: 30;
+    max-height: 220px;
+    overflow-y: auto;
+    padding: 4px 0;
+}
+.lo-list-filter-pop.hidden { display: none; }
+.lo-list-filter-pop-item {
+    padding: 6px 12px;
+    font-size: 12px;
+    color: #262626;
+    cursor: pointer;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+.lo-list-filter-pop-item:hover {
+    background: #f0fafa;
+    color: #13c2c2;
+}
+.lo-list-filter-pop-empty {
+    padding: 8px 12px;
+    font-size: 12px;
+    color: #bfbfbf;
+    text-align: center;
+}
+
+/* ============= 节点详情：上下游接口聚合表格（PRD 重构） ============= */
+.lo-iface-block { padding-bottom: 12px; }
+.lo-iface-filter-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    align-items: center;
+    margin: 8px 0 6px;
+}
+.lo-iface-filter-chip {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 4px 10px;
+    height: 28px;
+    border: 1px solid #d9d9d9;
+    border-radius: 14px;
+    background: #fff;
+    cursor: pointer;
+    font-size: 12px;
+    transition: border-color .12s;
+    user-select: none;
+}
+.lo-iface-filter-chip:hover { border-color: #13c2c2; }
+.lo-iface-filter-label { color: #595959; }
+.lo-iface-filter-value { color: #262626; max-width: 140px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.lo-iface-filter-value.is-all { color: #bfbfbf; }
+.lo-iface-filter-arrow { color: #8c8c8c; font-size: 10px; }
+.lo-iface-filter-pop {
+    position: absolute;
+    top: calc(100% + 6px);
+    left: 0;
+    z-index: 30;
+    width: 240px;
+    background: #fff;
+    border: 1px solid #f0f0f0;
+    border-radius: 6px;
+    box-shadow: 0 6px 16px rgba(0,0,0,0.08);
+    overflow: hidden;
+    cursor: default;
+}
+.lo-iface-filter-pop.hidden { display: none; }
+.lo-iface-filter-pop-search { padding: 8px; border-bottom: 1px solid #f0f0f0; }
+.lo-iface-filter-pop-search input {
+    width: 100%;
+    height: 28px;
+    padding: 0 8px;
+    border: 1px solid #d9d9d9;
+    border-radius: 4px;
+    font-size: 12px;
+    outline: none;
+}
+.lo-iface-filter-pop-search input:focus { border-color: #13c2c2; }
+.lo-iface-filter-pop-list {
+    max-height: 240px;
+    overflow-y: auto;
+    padding: 4px 0;
+}
+.lo-iface-filter-pop-item {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 12px;
+    font-size: 12px;
+    color: #262626;
+    cursor: pointer;
+}
+.lo-iface-filter-pop-item:hover { background: #f5f5f5; }
+.lo-iface-filter-pop-item input { margin: 0; }
+.lo-iface-filter-reset {
+    height: 28px;
+    padding: 0 12px;
+    border: 1px solid #d9d9d9;
+    background: #fff;
+    color: #595959;
+    border-radius: 14px;
+    font-size: 12px;
+    cursor: pointer;
+}
+.lo-iface-filter-reset:hover { color: #13c2c2; border-color: #13c2c2; }
+.lo-iface-selected-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin-bottom: 8px;
+}
+.lo-iface-selected-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 2px 8px;
+    background: #e6fffb;
+    border: 1px solid #b5f5ec;
+    color: #08979c;
+    border-radius: 10px;
+    font-size: 12px;
+    line-height: 1.4;
+}
+.lo-iface-selected-x {
+    cursor: pointer;
+    color: #08979c;
+    opacity: 0.7;
+    font-size: 12px;
+}
+.lo-iface-selected-x:hover { opacity: 1; }
+
+/* 表格 - 操作列固定 */
+.lo-iface-table-scroll {
+    overflow-x: auto;
+    position: relative;
+}
+.lo-iface-table-pro {
+    table-layout: auto;
+    min-width: 100%;
+}
+.lo-iface-table-pro th,
+.lo-iface-table-pro td {
+    white-space: nowrap;
+    vertical-align: middle;
+}
+.lo-iface-table-pro th.lo-iface-col-action,
+.lo-iface-table-pro td.lo-iface-col-action {
+    position: sticky;
+    right: 0;
+    background: #fff;
+    box-shadow: -4px 0 8px rgba(0,0,0,0.04);
+    z-index: 1;
+    text-align: right;
+}
+.lo-iface-table-pro thead th.lo-iface-col-action { background: #fafafa; }
+
+.lo-iface-svc-link {
+    color: #13c2c2;
+    text-decoration: none;
+    cursor: pointer;
+}
+.lo-iface-svc-link:hover { text-decoration: underline; }
+.lo-iface-svc-text {
+    color: #1f2937;
+    font-weight: 500;
+}
+.lo-iface-act-link {
+    color: #13c2c2;
+    cursor: pointer;
+    margin-left: 8px;
+    text-decoration: none;
+    font-size: 12px;
+}
+.lo-iface-act-link:first-child { margin-left: 0; }
+.lo-iface-act-link:hover { text-decoration: underline; }
+
+.lo-iface-cell-limited { color: #ff4d4f; font-weight: 600; }
+.lo-iface-cell-muted { color: #bfbfbf; }
+.lo-iface-cell-warn { color: #faad14; font-weight: 600; }
+.lo-iface-cell-err { color: #ff4d4f; font-weight: 600; }
+
+.lo-iface-health {
+    display: inline-block;
+    padding: 1px 8px;
+    border-radius: 10px;
+    font-size: 12px;
+    line-height: 1.6;
+}
+.lo-iface-health-safe { background: #f6ffed; color: #389e0d; border: 1px solid #b7eb8f; }
+.lo-iface-health-warn { background: #fff7e6; color: #d48806; border: 1px solid #ffd591; }
+.lo-iface-health-limit { background: #e6fffb; color: #08979c; border: 1px solid #87e8de; }
+.lo-iface-health-error { background: #fff1f0; color: #cf1322; border: 1px solid #ffa39e; }
+
+/* 优先级 chip */
+.lo-iface-priority {
+    display: inline-flex;
+    align-items: center;
+    padding: 1px 8px;
+    border-radius: 10px;
+    font-size: 12px;
+    line-height: 1.6;
+    border: 1px solid transparent;
+}
+.lo-iface-priority-p0 { background: #fff1f0; color: #cf1322; border-color: #ffa39e; }
+.lo-iface-priority-p1 { background: #fff7e6; color: #d48806; border-color: #ffd591; }
+.lo-iface-priority-p2 { background: #e6f4ff; color: #1677ff; border-color: #91caff; }
+
+.lo-abn-affected-cell { line-height: 1.8; }
+.lo-abn-affected-chip {
+    display: inline-block;
+    margin: 2px 4px 2px 0;
+    padding: 2px 8px;
+    background: #f5f5f5;
+    color: #595959;
+    border: 1px solid #e8e8e8;
+    border-radius: 10px;
+    font-size: 12px;
+    max-width: 220px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    vertical-align: middle;
+}
+.lo-abn-table td { vertical-align: middle; }
+
+.lo-iface-empty {
+    text-align: center;
+    padding: 36px 0;
+    color: #8c8c8c;
+}
+.lo-iface-empty-icon { font-size: 36px; margin-bottom: 8px; }
+.lo-iface-empty-clear {
+    display: inline-block;
+    margin-top: 6px;
+    color: #13c2c2;
+    cursor: pointer;
+}
+.lo-iface-empty-clear:hover { text-decoration: underline; }

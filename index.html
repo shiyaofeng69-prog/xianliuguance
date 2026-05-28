@@ -56,7 +56,7 @@
                                 <span class="menu-text">GEC-限流器</span>
                             </div>
                             <div class="menu-item" data-page="link-observation">
-                                <span class="menu-text">链路观测</span>
+                                <span class="menu-text">流控观测</span>
                             </div>
                             <div class="menu-item" data-page="limiter-scene">
                                 <span class="menu-text">限流场景</span>
@@ -129,7 +129,7 @@
                             <p class="page-desc" id="pageDesc"></p>
                         </div>
                         <div class="page-header-actions" id="pageHeaderActions">
-                            <button class="btn btn-success lo-list-btn" id="btnCreateLink">新建链路</button>
+                            <button class="btn btn-success lo-list-btn" id="btnCreateLink">新建观测视图</button>
                             <div class="lo-save-split hidden" id="loSaveSplit">
                                 <button class="btn btn-success lo-save-main" id="btnSaveConfig">保存配置</button>
                                 <button class="btn btn-success lo-save-caret" id="btnSaveCaret" aria-label="保存选项">▾</button>
@@ -206,17 +206,24 @@
                             <div class="lo-list-filter-card">
                                 <div class="lo-list-filter-grid">
                                     <div class="lo-filter-field">
-                                        <label>链路名称</label>
+                                        <label>观测视图名称</label>
                                         <div class="lo-filter-suggest" data-suggest-for="loLinksFName">
-                                            <input type="text" class="form-control" placeholder="请输入链路名称" id="loLinksFName" autocomplete="off">
+                                            <input type="text" class="form-control" placeholder="请输入观测视图名称" id="loLinksFName" autocomplete="off">
                                             <div class="lo-filter-suggest-panel hidden" id="loLinksFNamePanel"></div>
                                         </div>
                                     </div>
                                     <div class="lo-filter-field">
                                         <label>链路入口</label>
-                                        <div class="lo-filter-suggest" data-suggest-for="loLinksFEntry">
-                                            <input type="text" class="form-control" placeholder="请输入链路入口" id="loLinksFEntry" autocomplete="off">
-                                            <div class="lo-filter-suggest-panel hidden" id="loLinksFEntryPanel"></div>
+                                        <div class="lo-filter-cascade" id="loLinksFEntryWrap">
+                                            <input type="text" class="form-control" placeholder="请选择链路入口 PSM / 接口" id="loLinksFEntry" autocomplete="off" readonly>
+                                            <div class="lo-filter-cascade-panel hidden" id="loLinksFEntryPanel"></div>
+                                        </div>
+                                    </div>
+                                    <div class="lo-filter-field">
+                                        <label>部门</label>
+                                        <div class="lo-filter-tree" id="loLinksFDeptWrap">
+                                            <input type="text" class="form-control" placeholder="请选择部门" id="loLinksFDept" autocomplete="off" readonly>
+                                            <div class="lo-filter-tree-panel hidden" id="loLinksFDeptPanel"></div>
                                         </div>
                                     </div>
                                     <div class="lo-filter-field">
@@ -228,14 +235,25 @@
                                             <option value="P2">P2</option>
                                         </select>
                                     </div>
-                                    <div class="lo-filter-field lo-filter-field-actions">
-                                        <button class="btn btn-success" id="loLinksSearchBtn">查询</button>
-                                        <button class="btn btn-default" id="loLinksResetBtn">重置</button>
+                                    <div class="lo-filter-field">
+                                        <label>创建人</label>
+                                        <div class="lo-filter-suggest" data-suggest-for="loLinksFCreator">
+                                            <input type="text" class="form-control" placeholder="请输入创建人" id="loLinksFCreator" autocomplete="off">
+                                            <div class="lo-filter-suggest-panel hidden" id="loLinksFCreatorPanel"></div>
+                                        </div>
                                     </div>
+                                </div>
+                                <div class="lo-list-filter-actions">
+                                    <button class="btn btn-default" id="loLinksResetBtn">重置</button>
+                                    <button class="btn btn-success" id="loLinksSearchBtn">查询</button>
                                 </div>
                             </div>
                             <!-- 表格 -->
                             <div class="lo-list-table-card">
+                                <div class="lo-list-tabs">
+                                    <div class="lo-list-tab active" data-list-tab="all">全部</div>
+                                    <div class="lo-list-tab" data-list-tab="mine">我创建的</div>
+                                </div>
                                 <div class="lo-list-table-toolbar">
                                     <span class="lo-list-table-count" id="loLinksCount">共 0 条</span>
                                 </div>
@@ -243,8 +261,9 @@
                                     <table class="data-table lo-links-table">
                                         <thead>
                                             <tr>
-                                                <th>链路名称</th>
+                                                <th>观测视图名称</th>
                                                 <th>链路入口</th>
+                                                <th>部门</th>
                                                 <th>创建人</th>
                                                 <th>拓扑层级</th>
                                                 <th>优先级</th>
@@ -258,7 +277,7 @@
                                 <div class="lo-links-empty hidden" id="loLinksEmpty">
                                     <div class="lo-links-empty-icon">📭</div>
                                     <div class="lo-links-empty-title">暂无符合条件的链路</div>
-                                    <div class="lo-links-empty-desc">尝试清除筛选条件，或点击右上角「新建链路」</div>
+                                    <div class="lo-links-empty-desc">尝试清除筛选条件，或点击右上角「新建观测视图」</div>
                                 </div>
                             </div>
                         </div>
@@ -348,7 +367,14 @@
                                         <div class="searchable-dropdown hidden"></div>
                                     </div>
                                 </div>
-                                <div class="lo-field-cell"></div>
+                                <div class="lo-field-cell">
+                                    <label class="lo-field-label"><span class="lo-required">*</span>部门</label>
+                                    <div class="lo-filter-tree" id="loDeptWrap">
+                                        <input type="text" class="form-control" placeholder="请选择部门" id="loDept" autocomplete="off" readonly>
+                                        <span class="searchable-arrow">▾</span>
+                                        <div class="lo-filter-tree-panel hidden" id="loDeptPanel"></div>
+                                    </div>
+                                </div>
                             </div>
 
                             <!-- Row 4: 观测粒度（手动勾选） + 操作 -->
@@ -368,7 +394,7 @@
                         <!-- Result Card -->
                         <div class="lo-result-card" id="loResultCard">
                             <div class="lo-result-header lo-result-header-simple">
-                                <h3 class="lo-result-title-text">链路查询结果</h3>
+                                <h3 class="lo-result-title-text">视图查询结果</h3>
                                 <div class="lo-view-tabs">
                                     <button class="lo-view-tab active" id="loTabTopology">拓扑视图</button>
                                     <button class="lo-view-tab" id="loTabList">列表视图</button>
@@ -423,15 +449,39 @@
 
                             <!-- List View -->
                             <div class="lo-list-view hidden" id="loListView">
-                                <div class="list-filter">
-                                    <input type="text" class="form-control small" placeholder="搜索 PSM" id="loListSearch">
-                                    <select class="form-control small" id="loListStatus">
-                                        <option value="all">全部状态</option>
-                                        <option value="normal">正常</option>
-                                        <option value="warn">预警</option>
-                                        <option value="error">异常</option>
-                                    </select>
-                                    <button class="btn btn-default small" id="loListExport">导出</button>
+                                <div class="list-filter lo-list-filter-row">
+                                    <div class="lo-list-filter-item lo-list-filter-suggest" data-field="callerSvc">
+                                        <span class="lo-list-filter-label">调用方服务</span>
+                                        <input type="text" class="form-control small lo-list-filter-input" placeholder="请输入" id="loListFCallerSvc" autocomplete="off">
+                                        <div class="lo-list-filter-pop hidden"></div>
+                                    </div>
+                                    <div class="lo-list-filter-item lo-list-filter-suggest" data-field="callerCluster">
+                                        <span class="lo-list-filter-label">调用方集群</span>
+                                        <input type="text" class="form-control small lo-list-filter-input" placeholder="请输入" id="loListFCallerCluster" autocomplete="off">
+                                        <div class="lo-list-filter-pop hidden"></div>
+                                    </div>
+                                    <div class="lo-list-filter-item lo-list-filter-suggest lo-list-filter-callerIface" data-field="callerIface">
+                                        <span class="lo-list-filter-label">调用方接口</span>
+                                        <input type="text" class="form-control small lo-list-filter-input" placeholder="请输入" id="loListFCallerIface" autocomplete="off">
+                                        <div class="lo-list-filter-pop hidden"></div>
+                                    </div>
+                                    <div class="lo-list-filter-item lo-list-filter-suggest" data-field="calleeSvc">
+                                        <span class="lo-list-filter-label">被调用方服务</span>
+                                        <input type="text" class="form-control small lo-list-filter-input" placeholder="请输入" id="loListFCalleeSvc" autocomplete="off">
+                                        <div class="lo-list-filter-pop hidden"></div>
+                                    </div>
+                                    <div class="lo-list-filter-item lo-list-filter-suggest" data-field="calleeCluster">
+                                        <span class="lo-list-filter-label">被调用方集群</span>
+                                        <input type="text" class="form-control small lo-list-filter-input" placeholder="请输入" id="loListFCalleeCluster" autocomplete="off">
+                                        <div class="lo-list-filter-pop hidden"></div>
+                                    </div>
+                                    <div class="lo-list-filter-item lo-list-filter-suggest lo-list-filter-calleeIface" data-field="calleeIface">
+                                        <span class="lo-list-filter-label">被调用方接口</span>
+                                        <input type="text" class="form-control small lo-list-filter-input" placeholder="请输入" id="loListFCalleeIface" autocomplete="off">
+                                        <div class="lo-list-filter-pop hidden"></div>
+                                    </div>
+                                    <button class="btn btn-icon lo-list-filter-reset" id="loListResetBtn" title="重置">↺</button>
+                                    <button class="btn btn-success small" id="loListSearchBtn">搜索</button>
                                 </div>
                                 <div class="table-card">
                                     <table class="data-table lo-list-table">
@@ -439,16 +489,13 @@
                                             <tr>
                                                 <th>调用方服务</th>
                                                 <th>调用方集群</th>
+                                                <th class="lo-list-col-callerIface">调用方接口</th>
                                                 <th>被调用方服务</th>
                                                 <th>被调用方集群</th>
-                                                <th>被调用方方法</th>
-                                                <th>限流值</th>
-                                                <th>限流类型</th>
-                                                <th>限流模式</th>
+                                                <th class="lo-list-col-calleeIface">被调用方接口</th>
                                                 <th>流量 Max</th>
                                                 <th>流量 Avg</th>
                                                 <th>流量 P99</th>
-                                                <th>CPU 利用率</th>
                                                 <th>操作</th>
                                             </tr>
                                         </thead>
@@ -865,59 +912,81 @@
     <div class="modal-overlay hidden" id="loSaveDrawer">
         <div class="modal-drawer lo-save-drawer">
             <div class="modal-header">
-                <h3 id="loSaveDrawerTitle">新建链路</h3>
+                <h3 id="loSaveDrawerTitle">新建观测视图</h3>
                 <button class="modal-close" id="loSaveDrawerClose">×</button>
             </div>
             <p class="modal-subtitle">新创建的链路需要 3~5 分钟同步数据，请稍作等待</p>
             <div class="modal-body">
                 <div class="form-group">
-                    <label><span class="lo-required">*</span>链路名称</label>
-                    <input type="text" class="form-control" id="loSaveName" placeholder="请输入链路名称">
+                    <label><span class="lo-required">*</span>观测视图名称</label>
+                    <input type="text" class="form-control" id="loSaveName" placeholder="请输入观测视图名称" maxlength="40">
                 </div>
                 <div class="form-group">
                     <label>链路入口</label>
-                    <input type="text" class="form-control" id="loSaveEntry" readonly>
+                    <input type="text" class="form-control" id="loSaveEntry" placeholder="请选择链路入口 PSM / 接口" readonly>
                 </div>
                 <div class="form-row form-row-3">
                     <div class="form-group">
                         <label>VDC</label>
-                        <input type="text" class="form-control" id="loSaveVDC" readonly>
+                        <input type="text" class="form-control" id="loSaveVDC" placeholder="请选择 VDC" readonly>
                     </div>
                     <div class="form-group">
                         <label>集群</label>
-                        <input type="text" class="form-control" id="loSaveCluster" readonly>
+                        <input type="text" class="form-control" id="loSaveCluster" placeholder="请选择集群" readonly>
                     </div>
                     <div class="form-group">
                         <label>时间范围</label>
-                        <input type="text" class="form-control" id="loSaveTimeRange" readonly>
+                        <input type="text" class="form-control" id="loSaveTimeRange" placeholder="请选择时间范围" readonly>
                     </div>
                 </div>
                 <div class="form-group">
                     <label>拓扑层级</label>
-                    <input type="text" class="form-control" id="loSaveTopology" readonly>
+                    <input type="text" class="form-control" id="loSaveTopology" placeholder="向上 - 层 / 向下 - 层" readonly>
                 </div>
                 <div class="form-row form-row-3">
                     <div class="form-group">
                         <label>强弱依赖</label>
-                        <input type="text" class="form-control" id="loSaveDepType" readonly>
+                        <input type="text" class="form-control" id="loSaveDepType" placeholder="请选择强弱依赖" readonly>
                     </div>
                     <div class="form-group">
                         <label>服务优先级</label>
-                        <input type="text" class="form-control" id="loSaveSvcPriority" readonly>
+                        <input type="text" class="form-control" id="loSaveSvcPriority" placeholder="请选择服务优先级" readonly>
                     </div>
                     <div class="form-group">
                         <label>服务类型</label>
-                        <input type="text" class="form-control" id="loSaveSvcType" readonly>
+                        <input type="text" class="form-control" id="loSaveSvcType" placeholder="请选择服务类型" readonly>
+                    </div>
+                    <div class="form-group">
+                        <label>部门</label>
+                        <input type="text" class="form-control" id="loSaveDept" placeholder="未选择" readonly>
                     </div>
                 </div>
                 <div class="form-group">
                     <label>观测粒度</label>
-                    <input type="text" class="form-control" id="loSaveGran" readonly>
+                    <input type="text" class="form-control" id="loSaveGran" placeholder="未选择" readonly>
                 </div>
             </div>
             <div class="modal-footer">
                 <button class="btn btn-default" id="loSaveDrawerCancel">取消</button>
                 <button class="btn btn-primary" id="loSaveDrawerConfirm">确定</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 删除链路确认弹窗 -->
+    <div class="lo-confirm-overlay hidden" id="loDeleteConfirm">
+        <div class="lo-confirm-dialog" role="dialog" aria-modal="true" aria-labelledby="loDeleteConfirmTitle">
+            <div class="lo-confirm-header">
+                <span class="lo-confirm-icon">!</span>
+                <span class="lo-confirm-title" id="loDeleteConfirmTitle">确认删除该观测链路？</span>
+            </div>
+            <div class="lo-confirm-body">
+                <div class="lo-confirm-tip">删除后将无法恢复，请确认是否继续操作。</div>
+                <div class="lo-confirm-target" id="loDeleteConfirmTarget"></div>
+            </div>
+            <div class="lo-confirm-footer">
+                <button class="btn btn-default" id="loDeleteConfirmCancel">取消</button>
+                <button class="btn btn-danger" id="loDeleteConfirmOk">确认删除</button>
             </div>
         </div>
     </div>
